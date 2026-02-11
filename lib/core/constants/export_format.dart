@@ -1,0 +1,1 @@
+enum ExportFormat { csv, json }
