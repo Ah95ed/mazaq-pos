@@ -16,6 +16,28 @@ class MenuLocalDataSource {
     return rows.map(MenuItemModel.fromMap).toList();
   }
 
+  Future<List<String>> getAllCategories() async {
+    final rows = await database.query(
+      AppDbTables.itemCategories,
+      columns: [AppDbColumns.category],
+      orderBy: '${AppDbColumns.id} ASC',
+    );
+
+    return rows
+        .map((row) => (row[AppDbColumns.category] as String?)?.trim() ?? '')
+        .where((category) => category.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> insertCategory(String categoryName) async {
+    final now = DateTime.now().toIso8601String();
+    await database.insert(AppDbTables.itemCategories, {
+      AppDbColumns.category: categoryName,
+      AppDbColumns.createdAt: now,
+      AppDbColumns.updatedAt: now,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
   Future<void> insertItem(MenuItemModel item) async {
     await database.insert(
       AppDbTables.items,

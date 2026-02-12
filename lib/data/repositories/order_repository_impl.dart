@@ -31,6 +31,11 @@ class OrderRepositoryImpl implements OrderRepository {
     return localDataSource.updateStatus(id, OrderModel.orderStatusToDb(status));
   }
 
+  @override
+  Future<void> deleteOrder(int id) {
+    return localDataSource.deleteOrder(id);
+  }
+
   OrderModel _toModel(OrderEntity order) {
     return OrderModel(
       id: order.id,

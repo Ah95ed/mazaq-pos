@@ -44,4 +44,24 @@ class OrderLocalDataSource {
       whereArgs: [id],
     );
   }
+
+  Future<void> deleteOrder(int id) async {
+    await database.transaction((txn) async {
+      await txn.delete(
+        AppDbTables.orderItems,
+        where: '${AppDbColumns.orderId} = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        AppDbTables.sales,
+        where: '${AppDbColumns.orderId} = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        AppDbTables.orders,
+        where: '${AppDbColumns.id} = ?',
+        whereArgs: [id],
+      );
+    });
+  }
 }

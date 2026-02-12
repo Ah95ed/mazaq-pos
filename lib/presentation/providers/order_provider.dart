@@ -6,6 +6,7 @@ import '../../domain/entities/order_entity.dart';
 import '../../domain/entities/order_item_entity.dart';
 import '../../domain/usecases/orders/add_order_item.dart';
 import '../../domain/usecases/orders/create_order.dart';
+import '../../domain/usecases/orders/delete_order.dart';
 import '../../domain/usecases/orders/get_orders.dart';
 import '../../domain/usecases/orders/update_order_status.dart';
 
@@ -14,12 +15,14 @@ class OrderProvider extends ChangeNotifier {
   final AddOrderItem addOrderItem;
   final GetOrders getOrders;
   final UpdateOrderStatus updateOrderStatus;
+  final DeleteOrder deleteOrder;
 
   OrderProvider({
     required this.createOrder,
     required this.addOrderItem,
     required this.getOrders,
     required this.updateOrderStatus,
+    required this.deleteOrder,
   });
 
   OrderType _orderType = OrderType.dineIn;
@@ -170,6 +173,11 @@ class OrderProvider extends ChangeNotifier {
 
   Future<void> setStatus(int orderId, OrderStatus status) async {
     await updateOrderStatus(orderId, status);
+    await loadOrders();
+  }
+
+  Future<void> removeOrder(int orderId) async {
+    await deleteOrder(orderId);
     await loadOrders();
   }
 

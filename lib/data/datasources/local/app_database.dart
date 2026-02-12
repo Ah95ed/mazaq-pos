@@ -19,16 +19,23 @@ class AppDatabase {
     final dbPath = await _getDbPath();
     _database = await openDatabase(
       dbPath,
-      version: 3,
+      version: 5,
       onCreate: (db, version) async {
         await _createTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE ${AppDbTables.items} '
-            'ADD COLUMN ${AppDbColumns.priceText} TEXT',
+          final hasPriceText = await _columnExists(
+            db,
+            AppDbTables.items,
+            AppDbColumns.priceText,
           );
+          if (!hasPriceText) {
+            await db.execute(
+              'ALTER TABLE ${AppDbTables.items} '
+              'ADD COLUMN ${AppDbColumns.priceText} TEXT',
+            );
+          }
           await db.execute('''
             CREATE TABLE IF NOT EXISTS ${AppDbTables.printerSettings} (
               ${AppDbColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,10 +53,36 @@ class AppDatabase {
           );
         }
         if (oldVersion < 3) {
-          await db.execute(
-            'ALTER TABLE ${AppDbTables.items} '
-            'ADD COLUMN ${AppDbColumns.category} TEXT DEFAULT "BOTH"',
+          final hasCategory = await _columnExists(
+            db,
+            AppDbTables.items,
+            AppDbColumns.category,
           );
+          if (!hasCategory) {
+            await db.execute(
+              'ALTER TABLE ${AppDbTables.items} '
+              'ADD COLUMN ${AppDbColumns.category} TEXT DEFAULT "BOTH"',
+            );
+          }
+        }
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS ${AppDbTables.itemCategories} (
+              ${AppDbColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+              ${AppDbColumns.category} TEXT NOT NULL UNIQUE,
+              ${AppDbColumns.createdAt} TEXT NOT NULL,
+              ${AppDbColumns.updatedAt} TEXT NOT NULL
+            )
+            ''');
+        }
+        if (oldVersion < 5) {
+          final hasCategoriesTable = await _tableExists(
+            db,
+            AppDbTables.itemCategories,
+          );
+          if (hasCategoriesTable) {
+            await db.delete(AppDbTables.itemCategories);
+          }
         }
       },
     );
@@ -79,6 +112,15 @@ class AppDatabase {
         ${AppDbColumns.imagePath} TEXT,
         ${AppDbColumns.isActive} INTEGER NOT NULL,
         ${AppDbColumns.category} TEXT NOT NULL DEFAULT "BOTH",
+        ${AppDbColumns.createdAt} TEXT NOT NULL,
+        ${AppDbColumns.updatedAt} TEXT NOT NULL
+      )
+      ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${AppDbTables.itemCategories} (
+        ${AppDbColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${AppDbColumns.category} TEXT NOT NULL UNIQUE,
         ${AppDbColumns.createdAt} TEXT NOT NULL,
         ${AppDbColumns.updatedAt} TEXT NOT NULL
       )
@@ -133,5 +175,30 @@ class AppDatabase {
         ${AppDbColumns.updatedAt} TEXT NOT NULL
       )
       ''');
+  }
+
+  Future<bool> _columnExists(
+    Database db,
+    String tableName,
+    String columnName,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($tableName)');
+    for (final row in columns) {
+      if ((row['name'] as String?) == columnName) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<bool> _tableExists(Database db, String tableName) async {
+    final rows = await db.query(
+      'sqlite_master',
+      columns: ['name'],
+      where: 'type = ? AND name = ?',
+      whereArgs: ['table', tableName],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 }

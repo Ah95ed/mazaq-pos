@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_db.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_keys.dart';
 import '../../../../core/config/app_config.dart';
@@ -11,6 +12,7 @@ import '../../../../core/printing/tcp_printer_service.dart';
 import '../../../widgets/app_text_field.dart';
 import '../../../../domain/entities/order_entity.dart';
 import '../../../../core/constants/app_routes.dart';
+import '../../../providers/menu_provider.dart';
 import '../../../providers/order_provider.dart';
 
 class OrderSummaryPanel extends StatefulWidget {
@@ -24,6 +26,7 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
   final _taxController = TextEditingController();
   final _discountController = TextEditingController();
   final _totalController = TextEditingController();
+  String? _selectedPanelCategory;
 
   @override
   void dispose() {
@@ -196,8 +199,8 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
     return Card(
       child: Padding(
         padding: EdgeInsets.all(AppDimensions.md),
-        child: Consumer<OrderProvider>(
-          builder: (context, provider, _) {
+        child: Consumer2<OrderProvider, MenuProvider>(
+          builder: (context, provider, menuProvider, _) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -209,60 +212,51 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                   ),
                 ),
                 SizedBox(height: AppDimensions.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () =>
-                            provider.setOrderType(OrderType.dineIn),
-                        icon: Icon(
-                          provider.orderType == OrderType.dineIn
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                        ),
-                        label: Text(context.tr(AppKeys.dineIn)),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor:
-                              provider.orderType == OrderType.dineIn
-                              ? AppColors.brandSoft
-                              : null,
-                          foregroundColor:
-                              provider.orderType == OrderType.dineIn
-                              ? AppColors.brand
-                              : null,
-                        ),
-                      ),
+                DropdownButtonFormField<String?>(
+                  initialValue:
+                      menuProvider.filterCategories.contains(
+                        _selectedPanelCategory,
+                      )
+                      ? _selectedPanelCategory
+                      : null,
+                  decoration: InputDecoration(
+                    labelText: context.tr(AppKeys.itemCategory),
+                    prefixIcon: Icon(
+                      Icons.list_alt_rounded,
+                      color: AppColors.brand,
                     ),
-                    SizedBox(width: AppDimensions.sm),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () =>
-                            provider.setOrderType(OrderType.delivery),
-                        icon: Icon(
-                          provider.orderType == OrderType.delivery
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                        ),
-                        label: Text(context.tr(AppKeys.delivery)),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor:
-                              provider.orderType == OrderType.delivery
-                              ? AppColors.brandSoft
-                              : null,
-                          foregroundColor:
-                              provider.orderType == OrderType.delivery
-                              ? AppColors.brand
-                              : null,
-                        ),
-                      ),
+                  ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(context.tr(AppKeys.all)),
                     ),
+                    ...menuProvider.filterCategories.map((category) {
+                      var label = category;
+                      if (category == AppDbValues.categoryDineIn) {
+                        label = context.tr(AppKeys.dineIn);
+                      } else if (category == AppDbValues.categoryDelivery) {
+                        label = context.tr(AppKeys.delivery);
+                      } else if (category == AppDbValues.categoryBoth) {
+                        label = context.tr(AppKeys.both);
+                      }
+                      return DropdownMenuItem<String?>(
+                        value: category,
+                        child: Text(label),
+                      );
+                    }),
                   ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedPanelCategory = value;
+                    });
+                  },
                 ),
                 SizedBox(height: AppDimensions.md),
                 Expanded(
                   child: ListView.separated(
                     itemCount: provider.draftItems.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, unusedIndex) =>
                         Divider(color: AppColors.outline),
                     itemBuilder: (context, index) {
                       final item = provider.draftItems[index];

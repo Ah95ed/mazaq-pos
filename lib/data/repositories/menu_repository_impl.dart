@@ -15,8 +15,18 @@ class MenuRepositoryImpl implements MenuRepository {
   }
 
   @override
+  Future<List<String>> getAllCategories() {
+    return localDataSource.getAllCategories();
+  }
+
+  @override
   Future<void> addItem(MenuItemEntity item) {
     return localDataSource.insertItem(MenuItemModel.fromEntity(item));
+  }
+
+  @override
+  Future<void> addCategory(String categoryName) {
+    return localDataSource.insertCategory(categoryName);
   }
 
   @override

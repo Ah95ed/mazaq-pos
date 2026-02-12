@@ -46,7 +46,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
             return ListView.separated(
               itemCount: provider.orders.length,
-              separatorBuilder: (_, __) => Divider(color: AppColors.outline),
+              separatorBuilder: (_, unusedIndex) =>
+                  Divider(color: AppColors.outline),
               itemBuilder: (context, index) {
                 final order = provider.orders[index];
                 return ListTile(
@@ -94,29 +95,81 @@ class _OrdersScreenState extends State<OrdersScreen> {
     OrderProvider provider,
     OrderEntity order,
   ) {
-    return PopupMenuButton<OrderStatus>(
-      onSelected: (status) {
-        provider.setStatus(order.id, status);
+    return PopupMenuButton<String>(
+      onSelected: (value) async {
+        if (value == 'delete') {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) {
+              return AlertDialog(
+                title: Text(dialogContext.tr(AppKeys.confirmDeleteOrderTitle)),
+                content: Text(dialogContext.tr(AppKeys.confirmDeleteOrderBody)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: Text(dialogContext.tr(AppKeys.cancel)),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: Text(dialogContext.tr(AppKeys.confirm)),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (!context.mounted || !(confirmed ?? false)) {
+            return;
+          }
+
+          await provider.removeOrder(order.id);
+          return;
+        }
+
+        final status = _statusFromValue(value);
+        if (status != null) {
+          await provider.setStatus(order.id, status);
+        }
       },
       itemBuilder: (context) => [
         PopupMenuItem(
-          value: OrderStatus.newOrder,
+          value: 'status_new',
           child: Text(context.tr(AppKeys.statusNew)),
         ),
         PopupMenuItem(
-          value: OrderStatus.inProgress,
+          value: 'status_in_progress',
           child: Text(context.tr(AppKeys.statusInProgress)),
         ),
         PopupMenuItem(
-          value: OrderStatus.done,
+          value: 'status_done',
           child: Text(context.tr(AppKeys.statusDone)),
         ),
         PopupMenuItem(
-          value: OrderStatus.canceled,
+          value: 'status_canceled',
           child: Text(context.tr(AppKeys.statusCanceled)),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text(context.tr(AppKeys.deleteOrder)),
         ),
       ],
       child: Icon(Icons.more_vert, color: AppColors.inkSoft),
     );
+  }
+
+  OrderStatus? _statusFromValue(String value) {
+    switch (value) {
+      case 'status_new':
+        return OrderStatus.newOrder;
+      case 'status_in_progress':
+        return OrderStatus.inProgress;
+      case 'status_done':
+        return OrderStatus.done;
+      case 'status_canceled':
+        return OrderStatus.canceled;
+      default:
+        return null;
+    }
   }
 }

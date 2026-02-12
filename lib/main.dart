@@ -22,11 +22,14 @@ import 'data/repositories/printer_settings_repository_impl.dart';
 import 'data/repositories/sales_repository_impl.dart';
 import 'domain/usecases/export/export_table.dart';
 import 'domain/usecases/menu/add_menu_item.dart';
+import 'domain/usecases/menu/add_menu_category.dart';
 import 'domain/usecases/menu/delete_menu_item.dart';
+import 'domain/usecases/menu/get_all_menu_categories.dart';
 import 'domain/usecases/menu/get_all_menu_items.dart';
 import 'domain/usecases/menu/update_menu_item.dart';
 import 'domain/usecases/orders/add_order_item.dart';
 import 'domain/usecases/orders/create_order.dart';
+import 'domain/usecases/orders/delete_order.dart';
 import 'domain/usecases/orders/get_orders.dart';
 import 'domain/usecases/orders/update_order_status.dart';
 import 'domain/usecases/printer_settings/get_printer_settings.dart';
@@ -71,6 +74,8 @@ class AppRoot extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => MenuProvider(
             getAllItems: GetAllMenuItems(menuRepository),
+            getAllCategories: GetAllMenuCategories(menuRepository),
+            addMenuCategory: AddMenuCategory(menuRepository),
             addItem: AddMenuItem(menuRepository),
             updateItem: UpdateMenuItem(menuRepository),
             deleteItem: DeleteMenuItem(menuRepository),
@@ -82,6 +87,7 @@ class AppRoot extends StatelessWidget {
             addOrderItem: AddOrderItem(orderRepository),
             getOrders: GetOrders(orderRepository),
             updateOrderStatus: UpdateOrderStatus(orderRepository),
+            deleteOrder: DeleteOrder(orderRepository),
           ),
         ),
         ChangeNotifierProvider(

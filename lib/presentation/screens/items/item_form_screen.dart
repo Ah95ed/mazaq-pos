@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/constants/app_db.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/constants/app_keys.dart';
@@ -22,11 +23,22 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   MenuItemEntity? _editingItem;
-  ItemCategory _selectedCategory = ItemCategory.both;
+  String _selectedCategory = AppDbValues.categoryBoth;
+  bool _didLoadCategories = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_didLoadCategories) {
+      _didLoadCategories = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        context.read<MenuProvider>().loadItems();
+      });
+    }
+
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is MenuItemEntity && _editingItem == null) {
       _editingItem = args;
@@ -76,92 +88,50 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 validator: _priceValidator(context),
               ),
               SizedBox(height: AppDimensions.md),
-              Text(
-                context.tr(AppKeys.itemCategory),
-                style: TextStyle(
-                  fontSize: AppDimensions.textMd,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: AppDimensions.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCategory = ItemCategory.dineIn;
-                        });
-                      },
-                      icon: Icon(
-                        _selectedCategory == ItemCategory.dineIn
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                      ),
-                      label: Text(context.tr(AppKeys.dineIn)),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor:
-                            _selectedCategory == ItemCategory.dineIn
-                            ? AppColors.brandSoft
-                            : null,
-                        foregroundColor:
-                            _selectedCategory == ItemCategory.dineIn
-                            ? AppColors.brand
-                            : null,
+              Consumer<MenuProvider>(
+                builder: (context, menuProvider, _) {
+                  final categories = [...menuProvider.filterCategories];
+                  if (!categories.contains(_selectedCategory)) {
+                    if (_editingItem != null && _selectedCategory.isNotEmpty) {
+                      categories.add(_selectedCategory);
+                    } else if (categories.isNotEmpty) {
+                      _selectedCategory = categories.first;
+                    } else {
+                      _selectedCategory = AppDbValues.categoryBoth;
+                    }
+                  }
+
+                  return DropdownButtonFormField<String>(
+                    initialValue: categories.contains(_selectedCategory)
+                        ? _selectedCategory
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppKeys.itemCategory),
+                      prefixIcon: Icon(
+                        Icons.category_outlined,
+                        color: AppColors.brand,
                       ),
                     ),
-                  ),
-                  SizedBox(width: AppDimensions.sm),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCategory = ItemCategory.delivery;
-                        });
-                      },
-                      icon: Icon(
-                        _selectedCategory == ItemCategory.delivery
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                      ),
-                      label: Text(context.tr(AppKeys.delivery)),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor:
-                            _selectedCategory == ItemCategory.delivery
-                            ? AppColors.brandSoft
-                            : null,
-                        foregroundColor:
-                            _selectedCategory == ItemCategory.delivery
-                            ? AppColors.brand
-                            : null,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: AppDimensions.sm),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCategory = ItemCategory.both;
-                        });
-                      },
-                      icon: Icon(
-                        _selectedCategory == ItemCategory.both
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                      ),
-                      label: Text(context.tr(AppKeys.both)),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: _selectedCategory == ItemCategory.both
-                            ? AppColors.brandSoft
-                            : null,
-                        foregroundColor: _selectedCategory == ItemCategory.both
-                            ? AppColors.brand
-                            : null,
-                      ),
-                    ),
-                  ),
-                ],
+                    items: categories
+                        .map(
+                          (category) => DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(_categoryLabel(context, category)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: categories.isEmpty
+                        ? null
+                        : (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedCategory = value;
+                            });
+                          },
+                  );
+                },
               ),
               SizedBox(height: AppDimensions.lg),
               Row(
@@ -237,5 +207,15 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     }
 
     Navigator.pop(context);
+  }
+
+  String _categoryLabel(BuildContext context, String category) {
+    if (category == AppDbValues.categoryDineIn) {
+      return context.tr(AppKeys.dineIn);
+    }
+    if (category == AppDbValues.categoryDelivery) {
+      return context.tr(AppKeys.delivery);
+    }
+    return category;
   }
 }

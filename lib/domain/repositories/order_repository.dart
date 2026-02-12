@@ -6,4 +6,5 @@ abstract class OrderRepository {
   Future<void> addOrderItem(OrderItemEntity item);
   Future<List<OrderEntity>> getOrders();
   Future<void> updateOrderStatus(int id, OrderStatus status);
+  Future<void> deleteOrder(int id);
 }

@@ -4,8 +4,14 @@ class AppKeys {
   static const String ordersTab = 'orders_tab';
   static const String salesTab = 'sales_tab';
   static const String addItem = 'add_item';
+  static const String addCategory = 'add_category';
+  static const String addCategoryTitle = 'add_category_title';
+  static const String categoryName = 'category_name';
   static const String editItem = 'edit_item';
   static const String deleteItem = 'delete_item';
+  static const String deleteOrder = 'delete_order';
+  static const String confirmDeleteOrderTitle = 'confirm_delete_order_title';
+  static const String confirmDeleteOrderBody = 'confirm_delete_order_body';
   static const String price = 'price';
   static const String order = 'order';
   static const String print = 'print';

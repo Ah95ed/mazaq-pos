@@ -1,5 +1,6 @@
 class AppDbTables {
   static const String items = 'items';
+  static const String itemCategories = 'item_categories';
   static const String orders = 'orders';
   static const String orderItems = 'order_items';
   static const String sales = 'sales';

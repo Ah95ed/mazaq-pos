@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_breakpoints.dart';
+import '../../../core/constants/app_db.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/constants/app_keys.dart';
@@ -9,7 +10,6 @@ import '../../../core/constants/app_layout.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../core/localization/loc_extensions.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../domain/entities/menu_item_entity.dart';
 import '../../../domain/entities/order_item_entity.dart';
 import '../../providers/menu_provider.dart';
 import '../../providers/order_provider.dart';
@@ -45,10 +45,11 @@ class _MenuScreenState extends State<MenuScreen> {
         title: Text(context.tr(AppKeys.menuTab)),
         actions: const [LanguageSwitcher()],
       ),
-      floatingActionButton: _AddItemFab(
-        onPressed: () {
+      floatingActionButton: _MenuFabs(
+        onAddItem: () {
           Navigator.pushNamed(context, AppRoutes.itemForm);
         },
+        onAddCategory: _showAddCategoryDialog,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: Padding(
@@ -84,19 +85,83 @@ class _MenuScreenState extends State<MenuScreen> {
       ),
     );
   }
+
+  Future<void> _showAddCategoryDialog() async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final categoryName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(dialogContext.tr(AppKeys.addCategoryTitle)),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: dialogContext.tr(AppKeys.categoryName),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return dialogContext.tr(AppKeys.requiredField);
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(dialogContext.tr(AppKeys.cancel)),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.pop(dialogContext, controller.text.trim());
+                }
+              },
+              child: Text(dialogContext.tr(AppKeys.addCategory)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (categoryName == null || categoryName.isEmpty || !mounted) {
+      return;
+    }
+
+    await context.read<MenuProvider>().addCategory(categoryName);
+  }
 }
 
-class _AddItemFab extends StatelessWidget {
-  final VoidCallback onPressed;
+class _MenuFabs extends StatelessWidget {
+  final VoidCallback onAddItem;
+  final VoidCallback onAddCategory;
 
-  const _AddItemFab({required this.onPressed});
+  const _MenuFabs({required this.onAddItem, required this.onAddCategory});
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      onPressed: onPressed,
-      icon: const Icon(Icons.add),
-      label: Text(context.tr(AppKeys.addItem)),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FloatingActionButton.extended(
+          heroTag: 'add_category_fab',
+          onPressed: onAddCategory,
+          icon: const Icon(Icons.category_outlined),
+          label: Text(context.tr(AppKeys.addCategory)),
+        ),
+        SizedBox(width: AppDimensions.sm),
+        FloatingActionButton.extended(
+          heroTag: 'add_item_fab',
+          onPressed: onAddItem,
+          icon: const Icon(Icons.add),
+          label: Text(context.tr(AppKeys.addItem)),
+        ),
+      ],
     );
   }
 }
@@ -198,6 +263,10 @@ class _MenuPanel extends StatelessWidget {
       },
     );
 
+    if (!context.mounted) {
+      return;
+    }
+
     if (confirmed ?? false) {
       await context.read<MenuProvider>().removeItem(itemId);
     }
@@ -211,72 +280,38 @@ class _CategoryFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => menuProvider.setCategory(null),
-            icon: Icon(
-              menuProvider.selectedCategory == null
-                  ? Icons.check_circle
-                  : Icons.radio_button_unchecked,
-            ),
-            label: Text(context.tr(AppKeys.all)),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: menuProvider.selectedCategory == null
-                  ? AppColors.brandSoft
-                  : null,
-              foregroundColor: menuProvider.selectedCategory == null
-                  ? AppColors.brand
-                  : null,
-            ),
-          ),
+    return DropdownButtonFormField<String?>(
+      initialValue: menuProvider.selectedCategory,
+      decoration: InputDecoration(
+        labelText: context.tr(AppKeys.itemCategory),
+        prefixIcon: Icon(Icons.list_alt_rounded, color: AppColors.brand),
+      ),
+      items: [
+        DropdownMenuItem<String?>(
+          value: null,
+          child: Text(context.tr(AppKeys.all)),
         ),
-        SizedBox(width: AppDimensions.sm),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => menuProvider.setCategory(ItemCategory.dineIn),
-            icon: Icon(
-              menuProvider.selectedCategory == ItemCategory.dineIn
-                  ? Icons.check_circle
-                  : Icons.radio_button_unchecked,
-            ),
-            label: Text(context.tr(AppKeys.dineIn)),
-            style: OutlinedButton.styleFrom(
-              backgroundColor:
-                  menuProvider.selectedCategory == ItemCategory.dineIn
-                  ? AppColors.brandSoft
-                  : null,
-              foregroundColor:
-                  menuProvider.selectedCategory == ItemCategory.dineIn
-                  ? AppColors.brand
-                  : null,
-            ),
-          ),
-        ),
-        SizedBox(width: AppDimensions.sm),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => menuProvider.setCategory(ItemCategory.delivery),
-            icon: Icon(
-              menuProvider.selectedCategory == ItemCategory.delivery
-                  ? Icons.check_circle
-                  : Icons.radio_button_unchecked,
-            ),
-            label: Text(context.tr(AppKeys.delivery)),
-            style: OutlinedButton.styleFrom(
-              backgroundColor:
-                  menuProvider.selectedCategory == ItemCategory.delivery
-                  ? AppColors.brandSoft
-                  : null,
-              foregroundColor:
-                  menuProvider.selectedCategory == ItemCategory.delivery
-                  ? AppColors.brand
-                  : null,
-            ),
+        ...menuProvider.filterCategories.map(
+          (category) => DropdownMenuItem<String?>(
+            value: category,
+            child: Text(_categoryLabel(context, category)),
           ),
         ),
       ],
+      onChanged: (value) => menuProvider.setCategory(value),
     );
+  }
+
+  String _categoryLabel(BuildContext context, String category) {
+    if (category == AppDbValues.categoryDineIn) {
+      return context.tr(AppKeys.dineIn);
+    }
+    if (category == AppDbValues.categoryDelivery) {
+      return context.tr(AppKeys.delivery);
+    }
+    if (category == AppDbValues.categoryBoth) {
+      return context.tr(AppKeys.both);
+    }
+    return category;
   }
 }

@@ -1,5 +1,3 @@
-enum ItemCategory { dineIn, delivery, both }
-
 class MenuItemEntity {
   final int id;
   final String nameAr;
@@ -8,7 +6,7 @@ class MenuItemEntity {
   final String? priceText;
   final String? imagePath;
   final bool isActive;
-  final ItemCategory category;
+  final String category;
 
   const MenuItemEntity({
     required this.id,
@@ -18,6 +16,6 @@ class MenuItemEntity {
     this.priceText,
     this.imagePath,
     required this.isActive,
-    this.category = ItemCategory.both,
+    this.category = 'BOTH',
   });
 }
