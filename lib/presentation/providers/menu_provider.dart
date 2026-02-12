@@ -19,15 +19,31 @@ class MenuProvider extends ChangeNotifier {
     required this.deleteItem,
   });
 
-  List<MenuItemEntity> _items = [];
-  List<MenuItemEntity> get items => _items;
+  List<MenuItemEntity> _allItems = [];
+  ItemCategory? _selectedCategory;
+  ItemCategory? get selectedCategory => _selectedCategory;
+
+  List<MenuItemEntity> get items {
+    if (_selectedCategory == null) {
+      return _allItems;
+    }
+    return _allItems.where((item) {
+      if (item.category == ItemCategory.both) return true;
+      return item.category == _selectedCategory;
+    }).toList();
+  }
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  void setCategory(ItemCategory? category) {
+    _selectedCategory = category;
+    notifyListeners();
+  }
+
   Future<void> loadItems() async {
     _setLoading(true);
-    _items = await getAllItems();
+    _allItems = await getAllItems();
     _setLoading(false);
   }
 

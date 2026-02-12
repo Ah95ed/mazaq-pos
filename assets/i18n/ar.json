@@ -41,7 +41,9 @@
     "add_to_order": "إضافة",
     "printer_1": "طابعة 1",
     "printer_2": "طابعة 2",
-    "usb_printer": "طابعة USB",
+    "printer_grill": "طابعة الشواء",
+    "printer_kitchen": "طابعة المطبخ",
+    "printer_cashier": "طابعة الكاشير",
     "export": "تصدير",
     "required_field": "هذا الحقل مطلوب",
     "active_item": "تفعيل الصنف",
@@ -61,8 +63,7 @@
     "language": "اللغة",
     "language_ar": "العربية",
     "language_en": "الإنجليزية",
-    "print_usb_success": "تمت الطباعة عبر USB",
-    "wifi_printer": "طابعة واي فاي",
+    "print_success": "تمت الطباعة بنجاح",
     "printer_settings": "إعدادات الطابعة",
     "printer_ip": "عنوان IP",
     "printer_port": "المنفذ",
@@ -80,5 +81,8 @@
     "orders_count": "عدد الطلبات",
     "average_ticket": "متوسط الفاتورة",
     "last_order": "آخر طلب",
-    "no_orders": "لا توجد طلبات"
+    "no_orders": "لا توجد طلبات",
+    "item_category": "قسم الصنف",
+    "both": "كلاهما",
+    "all": "الكل"
 }

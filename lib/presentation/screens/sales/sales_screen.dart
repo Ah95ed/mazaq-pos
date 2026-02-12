@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/export_format.dart';
 import '../../../core/localization/loc_extensions.dart';
-import '../../../domain/entities/sales_report_entity.dart';
 import '../../../domain/entities/sales_section_report_entity.dart';
 import '../../providers/export_provider.dart';
 import '../../providers/sales_provider.dart';

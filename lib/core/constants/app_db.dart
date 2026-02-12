@@ -33,6 +33,7 @@ class AppDbColumns {
   static const String unitPrice = 'unit_price';
   static const String quantity = 'quantity';
   static const String lineTotal = 'line_total';
+  static const String category = 'category';
 
   static const String paidAt = 'paid_at';
 
@@ -50,4 +51,8 @@ class AppDbValues {
   static const String orderStatusInProgress = 'IN_PROGRESS';
   static const String orderStatusDone = 'DONE';
   static const String orderStatusCanceled = 'CANCELED';
+
+  static const String categoryDineIn = 'DINE_IN';
+  static const String categoryDelivery = 'DELIVERY';
+  static const String categoryBoth = 'BOTH';
 }

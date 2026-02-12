@@ -9,6 +9,7 @@ class MenuItemModel {
   final String? priceText;
   final String? imagePath;
   final bool isActive;
+  final ItemCategory category;
 
   const MenuItemModel({
     required this.id,
@@ -18,6 +19,7 @@ class MenuItemModel {
     this.priceText,
     this.imagePath,
     required this.isActive,
+    this.category = ItemCategory.both,
   });
 
   factory MenuItemModel.fromMap(Map<String, Object?> map) {
@@ -29,6 +31,7 @@ class MenuItemModel {
       priceText: map[AppDbColumns.priceText] as String?,
       imagePath: map[AppDbColumns.imagePath] as String?,
       isActive: (map[AppDbColumns.isActive] as int) == 1,
+      category: _categoryFromDb(map[AppDbColumns.category] as String?),
     );
   }
 
@@ -40,6 +43,7 @@ class MenuItemModel {
       AppDbColumns.priceText: priceText,
       AppDbColumns.imagePath: imagePath,
       AppDbColumns.isActive: isActive ? 1 : 0,
+      AppDbColumns.category: _categoryToDb(category),
       AppDbColumns.createdAt: DateTime.now().toIso8601String(),
       AppDbColumns.updatedAt: DateTime.now().toIso8601String(),
     };
@@ -58,6 +62,7 @@ class MenuItemModel {
       priceText: priceText,
       imagePath: imagePath,
       isActive: isActive,
+      category: category,
     );
   }
 
@@ -70,6 +75,29 @@ class MenuItemModel {
       priceText: entity.priceText,
       imagePath: entity.imagePath,
       isActive: entity.isActive,
+      category: entity.category,
     );
+  }
+
+  static String _categoryToDb(ItemCategory category) {
+    switch (category) {
+      case ItemCategory.dineIn:
+        return AppDbValues.categoryDineIn;
+      case ItemCategory.delivery:
+        return AppDbValues.categoryDelivery;
+      case ItemCategory.both:
+        return AppDbValues.categoryBoth;
+    }
+  }
+
+  static ItemCategory _categoryFromDb(String? value) {
+    switch (value) {
+      case AppDbValues.categoryDineIn:
+        return ItemCategory.dineIn;
+      case AppDbValues.categoryDelivery:
+        return ItemCategory.delivery;
+      default:
+        return ItemCategory.both;
+    }
   }
 }

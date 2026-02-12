@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/constants/app_keys.dart';
 import '../../../core/localization/loc_extensions.dart';
@@ -21,6 +22,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   MenuItemEntity? _editingItem;
+  ItemCategory _selectedCategory = ItemCategory.both;
 
   @override
   void didChangeDependencies() {
@@ -30,6 +32,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       _editingItem = args;
       _nameController.text = args.nameAr.isNotEmpty ? args.nameAr : args.nameEn;
       _priceController.text = args.priceText ?? args.price.toString();
+      _selectedCategory = args.category;
     }
   }
 
@@ -71,6 +74,94 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                   decimal: true,
                 ),
                 validator: _priceValidator(context),
+              ),
+              SizedBox(height: AppDimensions.md),
+              Text(
+                context.tr(AppKeys.itemCategory),
+                style: TextStyle(
+                  fontSize: AppDimensions.textMd,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: AppDimensions.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _selectedCategory = ItemCategory.dineIn;
+                        });
+                      },
+                      icon: Icon(
+                        _selectedCategory == ItemCategory.dineIn
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                      ),
+                      label: Text(context.tr(AppKeys.dineIn)),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor:
+                            _selectedCategory == ItemCategory.dineIn
+                            ? AppColors.brandSoft
+                            : null,
+                        foregroundColor:
+                            _selectedCategory == ItemCategory.dineIn
+                            ? AppColors.brand
+                            : null,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: AppDimensions.sm),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _selectedCategory = ItemCategory.delivery;
+                        });
+                      },
+                      icon: Icon(
+                        _selectedCategory == ItemCategory.delivery
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                      ),
+                      label: Text(context.tr(AppKeys.delivery)),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor:
+                            _selectedCategory == ItemCategory.delivery
+                            ? AppColors.brandSoft
+                            : null,
+                        foregroundColor:
+                            _selectedCategory == ItemCategory.delivery
+                            ? AppColors.brand
+                            : null,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: AppDimensions.sm),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _selectedCategory = ItemCategory.both;
+                        });
+                      },
+                      icon: Icon(
+                        _selectedCategory == ItemCategory.both
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                      ),
+                      label: Text(context.tr(AppKeys.both)),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _selectedCategory == ItemCategory.both
+                            ? AppColors.brandSoft
+                            : null,
+                        foregroundColor: _selectedCategory == ItemCategory.both
+                            ? AppColors.brand
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               SizedBox(height: AppDimensions.lg),
               Row(
@@ -136,6 +227,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       priceText: priceText,
       imagePath: _editingItem?.imagePath,
       isActive: _editingItem?.isActive ?? true,
+      category: _selectedCategory,
     );
 
     if (_editingItem == null) {

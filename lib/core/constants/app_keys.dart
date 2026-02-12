@@ -41,7 +41,9 @@ class AppKeys {
   static const String addToOrder = 'add_to_order';
   static const String printer1 = 'printer_1';
   static const String printer2 = 'printer_2';
-  static const String usbPrinter = 'usb_printer';
+  static const String printerGrill = 'printer_grill';
+  static const String printerKitchen = 'printer_kitchen';
+  static const String printerCashier = 'printer_cashier';
   static const String export = 'export';
   static const String requiredField = 'required_field';
   static const String activeItem = 'active_item';
@@ -61,8 +63,7 @@ class AppKeys {
   static const String language = 'language';
   static const String languageAr = 'language_ar';
   static const String languageEn = 'language_en';
-  static const String printUsbSuccess = 'print_usb_success';
-  static const String wifiPrinter = 'wifi_printer';
+  static const String printSuccess = 'print_success';
   static const String printerSettings = 'printer_settings';
   static const String printerIp = 'printer_ip';
   static const String printerPort = 'printer_port';
@@ -81,4 +82,7 @@ class AppKeys {
   static const String averageTicket = 'average_ticket';
   static const String lastOrder = 'last_order';
   static const String noOrders = 'no_orders';
+  static const String itemCategory = 'item_category';
+  static const String both = 'both';
+  static const String all = 'all';
 }

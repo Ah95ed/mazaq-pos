@@ -41,7 +41,9 @@
     "add_to_order": "Add",
     "printer_1": "Printer 1",
     "printer_2": "Printer 2",
-    "usb_printer": "USB Printer",
+    "printer_grill": "Grill Printer",
+    "printer_kitchen": "Kitchen Printer",
+    "printer_cashier": "Cashier Printer",
     "export": "Export",
     "required_field": "Required field",
     "active_item": "Active item",
@@ -61,8 +63,7 @@
     "language": "Language",
     "language_ar": "Arabic",
     "language_en": "English",
-    "print_usb_success": "Printed via USB",
-    "wifi_printer": "WiFi Printer",
+    "print_success": "Printed successfully",
     "printer_settings": "Printer Settings",
     "printer_ip": "Printer IP",
     "printer_port": "Printer Port",
@@ -80,5 +81,8 @@
     "orders_count": "Orders count",
     "average_ticket": "Average ticket",
     "last_order": "Last order",
-    "no_orders": "No orders"
+    "no_orders": "No orders",
+    "item_category": "Item category",
+    "both": "Both",
+    "all": "All"
 }

@@ -6,14 +6,11 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_keys.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/localization/loc_extensions.dart';
-import '../../../../core/printing/print_job_builder.dart';
 import '../../../../core/printing/printer_config.dart';
 import '../../../../core/printing/tcp_printer_service.dart';
-import '../../../../core/printing/usb_printer_service.dart';
 import '../../../widgets/app_text_field.dart';
 import '../../../../domain/entities/order_entity.dart';
 import '../../../../core/constants/app_routes.dart';
-import '../../../providers/printer_settings_provider.dart';
 import '../../../providers/order_provider.dart';
 
 class OrderSummaryPanel extends StatefulWidget {
@@ -212,6 +209,56 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                   ),
                 ),
                 SizedBox(height: AppDimensions.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            provider.setOrderType(OrderType.dineIn),
+                        icon: Icon(
+                          provider.orderType == OrderType.dineIn
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                        ),
+                        label: Text(context.tr(AppKeys.dineIn)),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor:
+                              provider.orderType == OrderType.dineIn
+                              ? AppColors.brandSoft
+                              : null,
+                          foregroundColor:
+                              provider.orderType == OrderType.dineIn
+                              ? AppColors.brand
+                              : null,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: AppDimensions.sm),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            provider.setOrderType(OrderType.delivery),
+                        icon: Icon(
+                          provider.orderType == OrderType.delivery
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                        ),
+                        label: Text(context.tr(AppKeys.delivery)),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor:
+                              provider.orderType == OrderType.delivery
+                              ? AppColors.brandSoft
+                              : null,
+                          foregroundColor:
+                              provider.orderType == OrderType.delivery
+                              ? AppColors.brand
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: AppDimensions.md),
                 Expanded(
                   child: ListView.separated(
                     itemCount: provider.draftItems.length,
@@ -337,19 +384,30 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.usb),
-                title: Text(context.tr(AppKeys.usbPrinter)),
+                leading: const Icon(Icons.local_fire_department),
+                title: Text(context.tr(AppKeys.printerGrill)),
+                subtitle: const Text('192.168.0.100'),
                 onTap: () {
                   Navigator.pop(context);
-                  _printUsb(context, provider);
+                  _printToGrill(context, provider);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.wifi),
-                title: Text(context.tr(AppKeys.wifiPrinter)),
+                leading: const Icon(Icons.restaurant),
+                title: Text(context.tr(AppKeys.printerKitchen)),
+                subtitle: const Text('192.168.0.165'),
                 onTap: () {
                   Navigator.pop(context);
-                  _printWifi(context, provider);
+                  _printToKitchen(context, provider);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.point_of_sale),
+                title: Text(context.tr(AppKeys.printerCashier)),
+                subtitle: const Text('192.168.0.166'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _printToCashier(context, provider);
                 },
               ),
               ListTile(
@@ -367,66 +425,79 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
     );
   }
 
-  Future<void> _printUsb(BuildContext context, OrderProvider provider) async {
-    final order = _buildDraftOrder(provider);
-    final builder = PrintJobBuilder();
-    builder.buildOrderDocument(
-      order: order,
-      orderIdLabel: context.tr(AppKeys.orderIdLabel),
-      totalLabel: context.tr(AppKeys.totalLabel),
-    );
-
-    final printer = PrinterConfig(
-      id: 'usb_1',
-      name: context.tr(AppKeys.usbPrinter),
-      type: PrinterType.usb,
-    );
-
-    await UsbPrinterService().printOrder(printer: printer, order: order);
-
-    if (!context.mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.tr(AppKeys.printUsbSuccess))),
+  Future<void> _printToGrill(
+    BuildContext context,
+    OrderProvider provider,
+  ) async {
+    await _printToNetworkPrinter(
+      context,
+      provider,
+      ip: '192.168.0.100',
+      port: 9100,
+      printerName: context.tr(AppKeys.printerGrill),
     );
   }
 
-  Future<void> _printWifi(BuildContext context, OrderProvider provider) async {
-    final settings = context.read<PrinterSettingsProvider>().wifiSettings;
-    if (settings?.ip == null || settings?.port == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr(AppKeys.printerNotConfigured))),
+  Future<void> _printToKitchen(
+    BuildContext context,
+    OrderProvider provider,
+  ) async {
+    await _printToNetworkPrinter(
+      context,
+      provider,
+      ip: '192.168.0.165',
+      port: 9100,
+      printerName: context.tr(AppKeys.printerKitchen),
+    );
+  }
+
+  Future<void> _printToCashier(
+    BuildContext context,
+    OrderProvider provider,
+  ) async {
+    await _printToNetworkPrinter(
+      context,
+      provider,
+      ip: '192.168.0.166',
+      port: 9100,
+      printerName: context.tr(AppKeys.printerCashier),
+    );
+  }
+
+  Future<void> _printToNetworkPrinter(
+    BuildContext context,
+    OrderProvider provider, {
+    required String ip,
+    required int port,
+    required String printerName,
+  }) async {
+    try {
+      final order = _buildDraftOrder(provider);
+      final printer = PrinterConfig(
+        id: 'printer_$ip',
+        name: printerName,
+        type: PrinterType.tcp,
+        ip: ip,
+        port: port,
       );
-      return;
+
+      await TcpPrinterService().printOrder(printer: printer, order: order);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.tr(AppKeys.printSuccess))));
+    } catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
-
-    final order = _buildDraftOrder(provider);
-    final builder = PrintJobBuilder();
-    builder.buildOrderDocument(
-      order: order,
-      orderIdLabel: context.tr(AppKeys.orderIdLabel),
-      totalLabel: context.tr(AppKeys.totalLabel),
-    );
-
-    final printer = PrinterConfig(
-      id: 'wifi_1',
-      name: context.tr(AppKeys.wifiPrinter),
-      type: PrinterType.tcp,
-      ip: settings?.ip,
-      port: settings?.port,
-    );
-
-    await TcpPrinterService().printOrder(printer: printer, order: order);
-
-    if (!context.mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.tr(AppKeys.printWifiSuccess))),
-    );
   }
 
   OrderEntity _buildDraftOrder(OrderProvider provider) {

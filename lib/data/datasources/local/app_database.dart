@@ -19,7 +19,7 @@ class AppDatabase {
     final dbPath = await _getDbPath();
     _database = await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -43,6 +43,12 @@ class AppDatabase {
             'UPDATE ${AppDbTables.items} '
             'SET ${AppDbColumns.priceText} = ${AppDbColumns.price} '
             'WHERE ${AppDbColumns.priceText} IS NULL',
+          );
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE ${AppDbTables.items} '
+            'ADD COLUMN ${AppDbColumns.category} TEXT DEFAULT "BOTH"',
           );
         }
       },
@@ -72,6 +78,7 @@ class AppDatabase {
         ${AppDbColumns.priceText} TEXT,
         ${AppDbColumns.imagePath} TEXT,
         ${AppDbColumns.isActive} INTEGER NOT NULL,
+        ${AppDbColumns.category} TEXT NOT NULL DEFAULT "BOTH",
         ${AppDbColumns.createdAt} TEXT NOT NULL,
         ${AppDbColumns.updatedAt} TEXT NOT NULL
       )
