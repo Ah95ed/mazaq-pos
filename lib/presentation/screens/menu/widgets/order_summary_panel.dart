@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_db.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_keys.dart';
-import '../../../../core/config/app_config.dart';
 import '../../../../core/localization/loc_extensions.dart';
-import '../../../../core/printing/printer_config.dart';
-import '../../../../core/printing/tcp_printer_service.dart';
-import '../../../widgets/app_text_field.dart';
 import '../../../../domain/entities/order_entity.dart';
-import '../../../../core/constants/app_routes.dart';
+import '../../../../services/pdf_generator_service.dart';
 import '../../../providers/menu_provider.dart';
 import '../../../providers/order_provider.dart';
+import '../../../widgets/app_text_field.dart';
 
 class OrderSummaryPanel extends StatefulWidget {
   const OrderSummaryPanel({super.key});
@@ -27,6 +25,9 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
   final _discountController = TextEditingController();
   final _totalController = TextEditingController();
   String? _selectedPanelCategory;
+  bool _isPrinting = false;
+
+  final _pdfService = PdfGeneratorService();
 
   @override
   void dispose() {
@@ -34,6 +35,52 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
     _discountController.dispose();
     _totalController.dispose();
     super.dispose();
+  }
+
+  // FINAL GUARANTEED FIX: This function now converts entities to simple Maps before printing.
+  Future<void> _printInvoice(OrderProvider provider) async {
+    if (provider.draftItems.isEmpty) return;
+
+    setState(() => _isPrinting = true);
+    try {
+      // 1. Convert the list of OrderItemEntity to a list of simple Maps.
+      // This completely decouples the UI from the PDF service.
+      final List<Map<String, dynamic>> itemsAsMaps = provider.draftItems.map((item) {
+        return {
+          'name': item.itemName,
+          'quantity': item.quantity,
+          'price': item.unitPrice,
+          'total': item.lineTotal,
+        };
+      }).toList();
+
+      final double subtotal = provider.draftSubtotal;
+      final double tax = provider.draftTotal - subtotal;
+
+      // 2. Generate the PDF with the simple, decoupled data.
+      final pdfBytes = await _pdfService.generateInvoice(
+        items: itemsAsMaps, // Pass the converted list
+        subtotal: subtotal,
+        tax: tax,
+        total: provider.draftTotal,
+        invoiceNumber: DateTime.now().millisecondsSinceEpoch.toString().substring(7),
+      );
+
+      // 3. Open the Windows Print Dialog
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+      );
+    } catch (e) {
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate or print PDF: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
   }
 
   Future<void> _showPriceEditor(
@@ -176,22 +223,22 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
 
   String? Function(String?) _optionalNumberValidator(BuildContext context) {
     return (value) {
-      if (value == null || value.trim().isEmpty) {
-        return null;
-      }
-      if (double.tryParse(value.trim()) == null) {
-        return context.tr(AppKeys.requiredField);
-      }
+      if (value == null || value.trim().isEmpty) return null;
+      final v = double.tryParse(value.trim());
+      if (v == null) return context.tr(AppKeys.requiredField);
       return null;
     };
   }
 
-  String _formatAmount(double value) {
-    final text = value.toStringAsFixed(6);
-    final trimmed = text
-        .replaceAll(RegExp(r'0+$'), '')
-        .replaceAll(RegExp(r'\.$'), '');
-    return trimmed.isEmpty ? '0' : trimmed;
+  String _formatAmount(num value) {
+    // يحذف كل الأصفار الزائدة بعد الفاصلة العشرية
+    String text = value.toStringAsFixed(6);
+    if (text.contains('.')) {
+      text = text.replaceFirst(RegExp(r'\.0+$'), '');
+      text = text.replaceFirst(RegExp(r'(\.\d*?[1-9])0+$'), r'\1');
+      text = text.replaceFirst(RegExp(r'\.$'), '');
+    }
+    return text;
   }
 
   @override
@@ -205,7 +252,7 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  context.tr(AppKeys.order),
+                  context.tr(AppKeys.cart),
                   style: TextStyle(
                     fontSize: AppDimensions.textLg,
                     fontWeight: FontWeight.w700,
@@ -294,6 +341,16 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                                   item.quantity + 1,
                                 ),
                               ),
+                              // زر حذف من السلة
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                tooltip: context.tr(AppKeys.deleteItem),
+                                onPressed: () =>
+                                    provider.removeDraftItem(index),
+                              ),
                             ],
                           ),
                           SizedBox(width: AppDimensions.sm),
@@ -343,16 +400,22 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                             : () {
                                 provider.submitDraft();
                               },
-                        child: Text(context.tr(AppKeys.order)),
+                        child: Text(context.tr(AppKeys.cart)),
                       ),
                     ),
                     SizedBox(width: AppDimensions.sm),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: provider.draftItems.isEmpty
+                        onPressed: (provider.draftItems.isEmpty || _isPrinting)
                             ? null
-                            : () => _showPrintOptions(context, provider),
-                        child: Text(context.tr(AppKeys.print)),
+                            : () => _printInvoice(provider), // Pass the provider
+                        child: _isPrinting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(context.tr(AppKeys.print)),
                       ),
                     ),
                   ],
@@ -362,156 +425,6 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
           },
         ),
       ),
-    );
-  }
-
-  Future<void> _showPrintOptions(
-    BuildContext context,
-    OrderProvider provider,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.all(AppDimensions.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.local_fire_department),
-                title: Text(context.tr(AppKeys.printerGrill)),
-                subtitle: const Text('192.168.0.100'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _printToGrill(context, provider);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.restaurant),
-                title: Text(context.tr(AppKeys.printerKitchen)),
-                subtitle: const Text('192.168.0.165'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _printToKitchen(context, provider);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.point_of_sale),
-                title: Text(context.tr(AppKeys.printerCashier)),
-                subtitle: const Text('192.168.0.166'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _printToCashier(context, provider);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: Text(context.tr(AppKeys.printerSettings)),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, AppRoutes.printerSettings);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _printToGrill(
-    BuildContext context,
-    OrderProvider provider,
-  ) async {
-    await _printToNetworkPrinter(
-      context,
-      provider,
-      ip: '192.168.0.100',
-      port: 9100,
-      printerName: context.tr(AppKeys.printerGrill),
-    );
-  }
-
-  Future<void> _printToKitchen(
-    BuildContext context,
-    OrderProvider provider,
-  ) async {
-    await _printToNetworkPrinter(
-      context,
-      provider,
-      ip: '192.168.0.165',
-      port: 9100,
-      printerName: context.tr(AppKeys.printerKitchen),
-    );
-  }
-
-  Future<void> _printToCashier(
-    BuildContext context,
-    OrderProvider provider,
-  ) async {
-    await _printToNetworkPrinter(
-      context,
-      provider,
-      ip: '192.168.0.166',
-      port: 9100,
-      printerName: context.tr(AppKeys.printerCashier),
-    );
-  }
-
-  Future<void> _printToNetworkPrinter(
-    BuildContext context,
-    OrderProvider provider, {
-    required String ip,
-    required int port,
-    required String printerName,
-  }) async {
-    try {
-      final order = _buildDraftOrder(provider);
-      final printer = PrinterConfig(
-        id: 'printer_$ip',
-        name: printerName,
-        type: PrinterType.tcp,
-        ip: ip,
-        port: port,
-      );
-
-      await TcpPrinterService().printOrder(printer: printer, order: order);
-
-      if (!context.mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.tr(AppKeys.printSuccess))));
-    } catch (e) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  OrderEntity _buildDraftOrder(OrderProvider provider) {
-    final subtotal = provider.draftSubtotal;
-    final tax = subtotal * AppConfig.taxRate;
-    final discount = AppConfig.defaultDiscount;
-    final total = subtotal + tax - discount;
-    final now = DateTime.now();
-
-    return OrderEntity(
-      id: 0,
-      orderType: provider.orderType,
-      status: OrderStatus.newOrder,
-      subtotal: subtotal,
-      tax: tax,
-      discount: discount,
-      total: total,
-      createdAt: now,
-      updatedAt: now,
-      items: provider.draftItems,
     );
   }
 }

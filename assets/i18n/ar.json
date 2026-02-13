@@ -14,6 +14,7 @@
     "confirm_delete_order_body": "هل تريد حذف هذا الطلب؟",
     "price": "السعر",
     "order": "طلب",
+    "cart": "السلة",
     "print": "طباعة",
     "quantity": "الكمية",
     "total": "الإجمالي",

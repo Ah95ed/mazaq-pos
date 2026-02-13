@@ -44,11 +44,12 @@ class EscPosPrinterService {
     // Initialize printer
     commands.addAll([ESC, 0x40]); // ESC @ - Initialize
 
-    // Header - Bold + Double size + Center
+    // Header - Bold + Double size + Center (Arabic)
     commands.addAll([ESC, 0x61, 0x01]); // Center align
     commands.addAll([ESC, 0x21, 0x30]); // Double height + width
     commands.addAll([GS, 0x21, 0x11]); // Character size
-    commands.addAll(utf8.encode('Mazaq POS'));
+    // Arabic title using PC1001 encoding
+    commands.addAll(_encodeArabic('مذاق POS'));
     commands.add(LF);
 
     // Reset to normal
@@ -59,63 +60,68 @@ class EscPosPrinterService {
     // Separator line
     commands.addAll(_line());
 
-    // Order info - Center align
+    // Order info - Center align (Arabic)
     commands.addAll([ESC, 0x61, 0x01]); // Center
     commands.addAll([ESC, 0x21, 0x10]); // Bold
-    commands.addAll(utf8.encode('Order #${order.id}'));
+    commands.addAll(_encodeArabic('طلب رقم ${order.id}'));
     commands.add(LF);
     commands.addAll([ESC, 0x21, 0x00]); // Normal
 
-    commands.addAll(utf8.encode(dateFormat.format(order.createdAt)));
+    commands.addAll(_encodeArabic(dateFormat.format(order.createdAt)));
     commands.add(LF);
 
     final orderTypeText = order.orderType == OrderType.dineIn
-        ? 'Dine-In'
-        : 'Delivery';
-    commands.addAll(utf8.encode(orderTypeText));
+        ? 'صالة'
+        : 'دليفري';
+    commands.addAll(_encodeArabic(orderTypeText));
     commands.add(LF);
     commands.add(LF);
 
     // Separator
     commands.addAll(_line());
 
-    // Items - Left align
+    // Items - Left align (Arabic)
     commands.addAll([ESC, 0x61, 0x00]); // Left align
 
     for (final item in order.items) {
-      // Item name
-      commands.addAll(utf8.encode(item.itemName));
+      // Item name (Arabic)
+      commands.addAll(_encodeArabic(item.itemName));
       commands.add(LF);
 
       // Quantity and price on same line
       final qtyPrice =
           'x${item.quantity}     ${item.lineTotal.toStringAsFixed(2)}';
-      commands.addAll(utf8.encode(qtyPrice));
+      commands.addAll(_encodeArabic(qtyPrice));
       commands.add(LF);
     }
 
     commands.add(LF);
     commands.addAll(_line());
 
-    // Totals
-    commands.addAll(_printLine('Subtotal:', order.subtotal.toStringAsFixed(2)));
-    commands.addAll(_printLine('Tax:', order.tax.toStringAsFixed(2)));
-    commands.addAll(_printLine('Discount:', order.discount.toStringAsFixed(2)));
+    // Totals (Arabic)
+    commands.addAll(
+      _printLineAr('الإجمالي الفرعي:', order.subtotal.toStringAsFixed(2)),
+    );
+    commands.addAll(_printLineAr('الضريبة:', order.tax.toStringAsFixed(2)));
+    commands.addAll(_printLineAr('الخصم:', order.discount.toStringAsFixed(2)));
 
     commands.addAll(_line());
 
-    // Total - Bold + Double size
-    commands.addAll([ESC, 0x21, 0x30]); // Double size
-    commands.addAll(_printLine('TOTAL:', order.total.toStringAsFixed(2)));
+    // Total - Bold + Small size - Center
+    commands.addAll([ESC, 0x61, 0x01]); // Center align
+    commands.addAll([ESC, 0x21, 0x01]); // Small font
+    commands.addAll(
+      _printLineAr('الإجمالي:', order.total.toStringAsFixed(2), center: true),
+    );
     commands.addAll([ESC, 0x21, 0x00]); // Normal
 
     commands.add(LF);
     commands.add(LF);
 
-    // Thank you - Center
+    // Thank you - Center (Arabic)
     commands.addAll([ESC, 0x61, 0x01]); // Center
     commands.addAll([ESC, 0x21, 0x10]); // Bold
-    commands.addAll(utf8.encode('Thank You!'));
+    commands.addAll(_encodeArabic('شكراً لاختياركم'));
     commands.add(LF);
 
     // Feed and cut
@@ -126,11 +132,22 @@ class EscPosPrinterService {
   }
 
   List<int> _line() {
-    return [...utf8.encode('================================'), LF];
+    return [..._encodeArabic('================================'), LF];
   }
 
-  List<int> _printLine(String label, String value) {
-    final line = '$label${' ' * (20 - label.length)}$value';
-    return [...utf8.encode(line), LF];
+  // Arabic line print helper
+  List<int> _printLineAr(String label, String value, {bool center = false}) {
+    // Shorter line, smaller font, center if needed
+    String line = center
+        ? '$label $value'
+        : '$label${' ' * (20 - label.length)}$value';
+    return [..._encodeArabic(line), LF];
+  }
+
+  // Encode Arabic string to PC1001 (code page 864)
+  List<int> _encodeArabic(String text) {
+    // Set code page to PC1001 (Arabic)
+    // ESC t n, n=22 for PC1001
+    return [ESC, 0x74, 22] + latin1.encode(text);
   }
 }

@@ -1,3 +1,4 @@
+import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -114,6 +115,8 @@ class AppRoot extends StatelessWidget {
             builder: (context, localeProvider, _) {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
+                builder: BotToastInit(), // BotToast
+                navigatorObservers: [BotToastNavigatorObserver()], // BotToast
                 onGenerateTitle: (context) => context.tr(AppKeys.appTitle),
                 theme: AppTheme.lightTheme(context),
                 locale: localeProvider.locale,

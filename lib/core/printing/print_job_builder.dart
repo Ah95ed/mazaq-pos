@@ -1,17 +1,34 @@
+import 'package:bidi/bidi.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:arabic_reshaper/arabic_reshaper.dart';
+import 'package:project/domain/entities/order_entity.dart' show OrderEntity, OrderType;
 
-import '../../domain/entities/order_entity.dart';
+// دالة لمعالجة النص العربي
+String reshapeArabic(String text) {
+  final reshaper = ArabicReshaper();
+  final reshaped = reshaper.reshape(text);
+  final visual = logicalToVisual(reshaped);
+  return String.fromCharCodes(visual);
+}
 
 class PrintJobBuilder {
-  pw.Document buildOrderDocument({
+  Future<pw.Document> buildOrderDocument({
     required OrderEntity order,
     required String orderIdLabel,
     required String totalLabel,
-  }) {
+  }) async {
     final doc = pw.Document();
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
+    // تحميل خط Cairo العربي من الأصول
+    final arabicFont = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/Cairo-Regular.ttf'),
+    );
+    final arabicFontBold = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/Cairo-Bold.ttf'),
+    );
 
     doc.addPage(
       pw.Page(
@@ -23,8 +40,9 @@ class PrintJobBuilder {
             children: [
               // Header
               pw.Text(
-                'مذاق POS',
+                reshapeArabic('مذاق POS'),
                 style: pw.TextStyle(
+                  font: arabicFontBold,
                   fontSize: 24,
                   fontWeight: pw.FontWeight.bold,
                 ),
@@ -38,22 +56,25 @@ class PrintJobBuilder {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    '$orderIdLabel #${order.id}',
+                    reshapeArabic('$orderIdLabel #${order.id}'),
                     style: pw.TextStyle(
+                      font: arabicFontBold,
                       fontSize: 18,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
                   pw.Text(
                     dateFormat.format(order.createdAt),
-                    style: const pw.TextStyle(fontSize: 12),
+                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
                   ),
                 ],
               ),
               pw.SizedBox(height: 8),
               pw.Text(
-                order.orderType == OrderType.dineIn ? 'صالة' : 'دليفري',
-                style: const pw.TextStyle(fontSize: 14),
+                reshapeArabic(
+                  order.orderType == OrderType.dineIn ? 'صالة' : 'دليفري',
+                ),
+                style: pw.TextStyle(font: arabicFont, fontSize: 14),
               ),
               pw.SizedBox(height: 20),
 
@@ -67,20 +88,56 @@ class PrintJobBuilder {
                       color: PdfColors.grey300,
                     ),
                     children: [
-                      _buildTableCell('الصنف', isHeader: true),
-                      _buildTableCell('الكمية', isHeader: true),
-                      _buildTableCell('السعر', isHeader: true),
-                      _buildTableCell('الإجمالي', isHeader: true),
+                      _buildTableCell(
+                        reshapeArabic('الصنف'),
+                        isHeader: true,
+                        font: arabicFont,
+                        fontBold: arabicFontBold,
+                      ),
+                      _buildTableCell(
+                        reshapeArabic('الكمية'),
+                        isHeader: true,
+                        font: arabicFont,
+                        fontBold: arabicFontBold,
+                      ),
+                      _buildTableCell(
+                        reshapeArabic('السعر'),
+                        isHeader: true,
+                        font: arabicFont,
+                        fontBold: arabicFontBold,
+                      ),
+                      _buildTableCell(
+                        reshapeArabic('الإجمالي'),
+                        isHeader: true,
+                        font: arabicFont,
+                        fontBold: arabicFontBold,
+                      ),
                     ],
                   ),
                   // Items
                   ...order.items.map(
                     (item) => pw.TableRow(
                       children: [
-                        _buildTableCell(item.itemName),
-                        _buildTableCell(item.quantity.toString()),
-                        _buildTableCell(item.unitPrice.toStringAsFixed(2)),
-                        _buildTableCell(item.lineTotal.toStringAsFixed(2)),
+                        _buildTableCell(
+                          reshapeArabic(item.itemName),
+                          font: arabicFont,
+                          fontBold: arabicFontBold,
+                        ),
+                        _buildTableCell(
+                          item.quantity.toString(),
+                          font: arabicFont,
+                          fontBold: arabicFontBold,
+                        ),
+                        _buildTableCell(
+                          item.unitPrice.toStringAsFixed(2),
+                          font: arabicFont,
+                          fontBold: arabicFontBold,
+                        ),
+                        _buildTableCell(
+                          item.lineTotal.toStringAsFixed(2),
+                          font: arabicFont,
+                          fontBold: arabicFontBold,
+                        ),
                       ],
                     ),
                   ),
@@ -92,15 +149,32 @@ class PrintJobBuilder {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  _buildTotalRow('الإجمالي الفرعي:', order.subtotal),
-                  _buildTotalRow('الضريبة:', order.tax),
-                  _buildTotalRow('الخصم:', order.discount),
+                  _buildTotalRow(
+                    reshapeArabic('الإجمالي الفرعي:'),
+                    order.subtotal,
+                    font: arabicFont,
+                    fontBold: arabicFontBold,
+                  ),
+                  _buildTotalRow(
+                    reshapeArabic('الضريبة:'),
+                    order.tax,
+                    font: arabicFont,
+                    fontBold: arabicFontBold,
+                  ),
+                  _buildTotalRow(
+                    reshapeArabic('الخصم:'),
+                    order.discount,
+                    font: arabicFont,
+                    fontBold: arabicFontBold,
+                  ),
                   pw.Divider(),
                   _buildTotalRow(
-                    '$totalLabel:',
+                    reshapeArabic('$totalLabel:'),
                     order.total,
                     isBold: true,
                     fontSize: 18,
+                    font: arabicFont,
+                    fontBold: arabicFontBold,
                   ),
                 ],
               ),
@@ -112,12 +186,18 @@ class PrintJobBuilder {
     return doc;
   }
 
-  pw.Widget _buildTableCell(String text, {bool isHeader = false}) {
+  pw.Widget _buildTableCell(
+    String text, {
+    bool isHeader = false,
+    pw.Font? font,
+    pw.Font? fontBold,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(8),
       child: pw.Text(
         text,
         style: pw.TextStyle(
+          font: isHeader ? fontBold : font,
           fontSize: isHeader ? 14 : 12,
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
@@ -131,6 +211,8 @@ class PrintJobBuilder {
     double amount, {
     bool isBold = false,
     double fontSize = 14,
+    pw.Font? font,
+    pw.Font? fontBold,
   }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4),
@@ -146,6 +228,7 @@ class PrintJobBuilder {
                 pw.Text(
                   label,
                   style: pw.TextStyle(
+                    font: isBold ? fontBold : font,
                     fontSize: fontSize,
                     fontWeight: isBold
                         ? pw.FontWeight.bold
@@ -155,6 +238,7 @@ class PrintJobBuilder {
                 pw.Text(
                   amount.toStringAsFixed(2),
                   style: pw.TextStyle(
+                    font: isBold ? fontBold : font,
                     fontSize: fontSize,
                     fontWeight: isBold
                         ? pw.FontWeight.bold

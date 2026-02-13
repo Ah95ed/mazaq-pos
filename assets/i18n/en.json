@@ -14,6 +14,7 @@
     "confirm_delete_order_body": "Are you sure you want to delete this order?",
     "price": "Price",
     "order": "Order",
+    "cart": "Cart",
     "print": "Print",
     "quantity": "Quantity",
     "total": "Total",

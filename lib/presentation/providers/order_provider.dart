@@ -11,6 +11,13 @@ import '../../domain/usecases/orders/get_orders.dart';
 import '../../domain/usecases/orders/update_order_status.dart';
 
 class OrderProvider extends ChangeNotifier {
+  void removeDraftItem(int index) {
+    if (index >= 0 && index < _draftItems.length) {
+      _draftItems.removeAt(index);
+      notifyListeners();
+    }
+  }
+
   final CreateOrder createOrder;
   final AddOrderItem addOrderItem;
   final GetOrders getOrders;

@@ -13,7 +13,8 @@ class AppKeys {
   static const String confirmDeleteOrderTitle = 'confirm_delete_order_title';
   static const String confirmDeleteOrderBody = 'confirm_delete_order_body';
   static const String price = 'price';
-  static const String order = 'order';
+  static const String order = 'order'; // يبقى للترجمة العامة
+  static const String cart = 'cart';
   static const String print = 'print';
   static const String quantity = 'quantity';
   static const String total = 'total';
