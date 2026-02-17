@@ -1,34 +1,40 @@
-import 'package:bot_toast/bot_toast.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../services/pdf_generator_service.dart';
-import '../../../../services/printer_service.dart';
+import 'package:bot_toast/bot_toast.dart';
 
-// The function to show the bottom sheet. It's now simplified.
-void showPrintSheet(BuildContext context) {
+import '../../../../services/printer_service.dart';
+import '../../settings/printer_settings_screen.dart';
+
+// The function now passes the original BuildContext to be used for navigation.
+void showPrintDialog(BuildContext context, {required String filePath}) {
   BotToast.showEnhancedWidget(
-    allowClick: true,
-    crossPage: false,
     onlyOne: true,
-    toastBuilder: (cancelFunc) => Align(
-      alignment: Alignment.bottomCenter,
-      child: FractionallySizedBox(
-        widthFactor: 1,
-        // Pass the cancelFunc to the dialog to allow it to close itself.
-        child: PrintDialogWidget(onCancel: cancelFunc),
-      ),
-    ),
-    duration: const Duration(minutes: 10),
-    clickClose: true,
-    backgroundColor: Colors.transparent,
+    toastBuilder: (cancelFunc) {
+      return Material(
+        color: Colors.black26,
+        child: Center(
+          child: PrintDialogWidget(
+            navigatorContext: context, // Pass the valid context here
+            filePath: filePath,
+            onCancel: cancelFunc,
+          ),
+        ),
+      );
+    },
   );
 }
 
 class PrintDialogWidget extends StatefulWidget {
-  // Callback to close the bottom sheet (provided by BotToast)
+  final BuildContext navigatorContext; // Context that has a Navigator
+  final String filePath;
   final VoidCallback onCancel;
 
-  const PrintDialogWidget({super.key, required this.onCancel});
+  const PrintDialogWidget({
+    super.key,
+    required this.navigatorContext,
+    required this.filePath,
+    required this.onCancel,
+  });
 
   @override
   State<PrintDialogWidget> createState() => _PrintDialogWidgetState();
@@ -38,89 +44,128 @@ class _PrintDialogWidgetState extends State<PrintDialogWidget> {
   String? _loadingStatus;
   bool get _isLoading => _loadingStatus != null;
 
-  final _pdfService = PdfGeneratorService();
   final _printerService = PrinterService();
 
-  Future<void> _handlePrint(String printerName, String ip, int port) async {
+  Future<void> _handlePrint(String printerName, String ip) async {
     if (_isLoading) return;
 
     setState(() {
-      _loadingStatus = '⏳ جار تهيئة الفاتورة...';
+      _loadingStatus = '⏳ جار الطباعة على $printerName...';
     });
 
-    try {
-      // 1. Generate PDF
-      final pdfPath = await _pdfService.generateInvoice();
-      
-      // 2. Print
-      await _printerService.printPdfAsImage(
-        pdfPath,
-        ip,
-        port,
-        onStatus: (status) {
-          if (mounted) {
-            setState(() {
-              _loadingStatus = status;
-            });
-          }
-        },
-      );
+    await _printerService.printPdfAsImage(
+      widget.filePath,
+      ip,
+      9100, // Standard port
+      onStatus: (status) {
+        if (mounted) {
+          setState(() {
+            _loadingStatus = status;
+          });
+        }
+      },
+    );
 
-      // On success, wait a moment then close the dialog.
-      if (_loadingStatus?.startsWith('✅') ?? false) {
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
-          widget.onCancel();
-        }
-      } else {
-        // On failure, wait a bit longer so user can see the error, then close.
-        await Future.delayed(const Duration(seconds: 4));
-        if (mounted) {
-          widget.onCancel();
-        }
-      }
-
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loadingStatus = '❌ خطأ فادح: ${e.toString()}';
-        });
-         await Future.delayed(const Duration(seconds: 4));
-        if (mounted) {
-          widget.onCancel();
-        }
-      }
+    if (_loadingStatus?.startsWith('✅') ?? false) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) widget.onCancel();
     }
+  }
+
+  void _navigateToSettings() {
+    // First, close the current dialog.
+    widget.onCancel();
+    // Then, use the valid navigator context to push the new screen.
+    Navigator.of(widget.navigatorContext).push(
+      MaterialPageRoute(builder: (context) => const PrinterSettingsScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Prevent user from dismissing the sheet while printing.
     return WillPopScope(
       onWillPop: () async => !_isLoading,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 16,
-                offset: const Offset(0, -4),
-              ),
-            ],
-          ),
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _isLoading ? _buildLoadingView() : _buildSelectionView(),
-          ),
+      child: Card(
+        margin: const EdgeInsets.all(24),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          child: _isLoading ? _buildLoadingView() : _buildSelectionView(),
         ),
       ),
     );
+  }
+
+  // Store IPs for each printer
+  final Map<String, String> _printerIps = {
+    'طابعة الشواء': '192.168.0.100',
+    'طابعة المطبخ': '192.168.0.165',
+    'طابعة الكاشير': '192.168.0.166',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrinterIps();
+  }
+
+  Future<void> _loadPrinterIps() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in _printerIps.keys) {
+      final savedIp = prefs.getString('printer_ip_$key');
+      if (savedIp != null && savedIp.isNotEmpty) {
+        setState(() {
+          _printerIps[key] = savedIp;
+        });
+      }
+    }
+  }
+
+  Future<void> _savePrinterIp(String printerName, String ip) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('printer_ip_$printerName', ip);
+  }
+
+  void _changePrinterIp(String printerName) async {
+    // Close the main dialog first
+    widget.onCancel();
+    await Future.delayed(
+      const Duration(milliseconds: 300),
+    ); // Wait for dialog to close
+
+    String ipValue = _printerIps[printerName] ?? '';
+    final controller = TextEditingController(text: ipValue);
+    String? newIp = await showDialog<String>(
+      context: widget.navigatorContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('تغيير IP لـ $printerName'),
+          content: TextField(
+            autofocus: true,
+            decoration: InputDecoration(labelText: 'IP جديد'),
+            controller: controller,
+          ),
+          actions: [
+            TextButton(
+              child: const Text('إلغاء'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            ElevatedButton(
+              child: const Text('حفظ'),
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            ),
+          ],
+        );
+      },
+    );
+    if (newIp != null && newIp.isNotEmpty) {
+      await _savePrinterIp(printerName, newIp);
+      if (mounted) {
+        setState(() {
+          _printerIps[printerName] = newIp;
+        });
+      }
+    }
   }
 
   Widget _buildSelectionView() {
@@ -128,113 +173,122 @@ class _PrintDialogWidgetState extends State<PrintDialogWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(
-          child: Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: AppColors.inkSoft,
-              borderRadius: BorderRadius.circular(2),
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Text(
+            'اختر طابعة',
+            style: Theme.of(context).textTheme.headlineSmall,
+            textAlign: TextAlign.center,
           ),
         ),
-        const Text(
-          'اختر الطابعة',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            color: AppColors.ink,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 20),
         _PrinterButton(
-          icon: Icons.local_fire_department,
           label: 'طابعة الشواء',
-          iconColor: AppColors.brand,
-          onTap: () => _handlePrint('طابعة الشواء', '192.168.0.100', 9100),
-          isEnabled: !_isLoading,
+          ip: _printerIps['طابعة الشواء']!,
+          icon: Icons.local_fire_department,
+          onPrint: () =>
+              _handlePrint('طابعة الشواء', _printerIps['طابعة الشواء']!),
+          onSettings: _navigateToSettings,
+          onChangeIp: () => _changePrinterIp('طابعة الشواء'),
         ),
-        const SizedBox(height: 12),
         _PrinterButton(
-          icon: Icons.kitchen,
           label: 'طابعة المطبخ',
-          iconColor: AppColors.success,
-          onTap: () => _handlePrint('طابعة المطبخ', '192.168.0.165', 9100),
-          isEnabled: !_isLoading,
+          ip: _printerIps['طابعة المطبخ']!,
+          icon: Icons.kitchen,
+          onPrint: () =>
+              _handlePrint('طابعة المطبخ', _printerIps['طابعة المطبخ']!),
+          onSettings: _navigateToSettings,
+          onChangeIp: () => _changePrinterIp('طابعة المطبخ'),
         ),
-        const SizedBox(height: 12),
         _PrinterButton(
-          icon: Icons.point_of_sale,
           label: 'طابعة الكاشير',
-          iconColor: AppColors.warning,
-          onTap: () => _handlePrint('طابعة الكاشير', '192.168.0.166', 9100),
-          isEnabled: !_isLoading,
+          ip: _printerIps['طابعة الكاشير']!,
+          icon: Icons.point_of_sale,
+          onPrint: () =>
+              _handlePrint('طابعة الكاشير', _printerIps['طابعة الكاشير']!),
+          onSettings: _navigateToSettings,
+          onChangeIp: () => _changePrinterIp('طابعة الكاشير'),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: TextButton(
+            onPressed: widget.onCancel,
+            child: const Text('إلغاء'),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildLoadingView() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: 20),
-        const CircularProgressIndicator(),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 20),
+          Text(
             _loadingStatus ?? '',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: AppColors.ink),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-        ),
-        const SizedBox(height: 20),
-      ],
+          if (_loadingStatus?.startsWith('❌') ?? false)
+            Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: ElevatedButton(
+                onPressed: widget.onCancel,
+                child: const Text('إغلاق'),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
 class _PrinterButton extends StatelessWidget {
-  final IconData icon;
   final String label;
-  final Color iconColor;
-  final VoidCallback onTap;
-  final bool isEnabled;
+  final String ip;
+  final IconData icon;
+  final VoidCallback onPrint;
+  final VoidCallback onSettings;
+  final VoidCallback? onChangeIp;
 
   const _PrinterButton({
-    required this.icon,
     required this.label,
-    required this.iconColor,
-    required this.onTap,
-    this.isEnabled = true,
+    required this.ip,
+    required this.icon,
+    required this.onPrint,
+    required this.onSettings,
+    this.onChangeIp,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: isEnabled ? AppColors.surfaceAlt : Theme.of(context).disabledColor.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: isEnabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-          child: Opacity(
-            opacity: isEnabled ? 1.0 : 0.5,
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor, size: 28),
-                const SizedBox(width: 16),
-                Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.ink)),
-              ],
-            ),
-          ),
-        ),
+    return ListTile(
+      leading: Icon(
+        icon,
+        size: 32,
+        color: Theme.of(context).colorScheme.primary,
       ),
+      title: Text(
+        label,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+      ),
+      subtitle: Text('IP: $ip'),
+      onTap: onPrint,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (onChangeIp != null)
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: onChangeIp,
+            ),
+          IconButton(icon: const Icon(Icons.more_vert), onPressed: onSettings),
+        ],
+      ),
+      contentPadding: const EdgeInsets.only(left: 20, right: 12),
     );
   }
 }

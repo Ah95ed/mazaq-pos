@@ -29,8 +29,7 @@ dependencies:
     ^1.9.1
   path_provider:
     ^2.1.5
-  shared_preferences:
-    ^2.3.2
+  shared_preferences: ^2.5.4
   csv:
     ^6.0.0
   pdf: 
@@ -44,6 +43,10 @@ dependencies:
   pdf_render: ^1.4.12
   bot_toast: ^4.1.3
   win32: ^5.15.0
+
+  # Added for ESC/POS printing
+  esc_pos_utils_plus: ^2.0.4
+  image: ^4.2.0
 
 
 dev_dependencies:

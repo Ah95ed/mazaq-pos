@@ -1,13 +1,16 @@
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+// FIXED: Added the missing import for rootBundle
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-// FINAL, DECOUPLED VERSION: This service has NO external project imports.
-
 class PdfGeneratorService {
-  Future<Uint8List> generateInvoice({
-    // Accepts a list of simple Maps to be fully independent.
+  // This method generates the PDF as raw data.
+  Future<Uint8List> generateInvoiceBytes({
     required List<Map<String, dynamic>> items,
     required double subtotal,
     required double tax,
@@ -26,44 +29,22 @@ class PdfGeneratorService {
     pdf.addPage(
       pw.Page(
         theme: arabicTheme,
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: PdfPageFormat.roll80,
         build: (pw.Context context) {
           return pw.Directionality(
             textDirection: pw.TextDirection.rtl,
-            child: pw.Padding(
-              padding: const pw.EdgeInsets.all(20),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Center(
-                    child: pw.Text('فاتورة ضريبية مبسطة', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 22)),
-                  ),
-                  pw.SizedBox(height: 20),
-                  pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text('اسم المطعم: مذاق', style: const pw.TextStyle(fontSize: 16)),
-                        pw.Text('فاتورة رقم: $invoiceNumber', style: const pw.TextStyle(fontSize: 16)),
-                      ]),
-                  pw.Text('الرقم الضريبي: 123456789012345', style: const pw.TextStyle(fontSize: 16)),
-                  pw.Divider(height: 30),
-                  _buildHeader(),
-                  pw.Divider(),
-                  ...items.map((item) => _buildInvoiceItem(item)).toList(),
-                  pw.Divider(height: 30),
-                  _buildTotals(subtotal, tax, total),
-                  pw.Spacer(),
-                  pw.Center(
-                      child: pw.BarcodeWidget(
-                    barcode: pw.Barcode.qrCode(),
-                    data: 'Invoice Data: $invoiceNumber',
-                    width: 80,
-                    height: 80,
-                  )),
-                  pw.SizedBox(height: 10),
-                  pw.Center(child: pw.Text('شكراً لزيارتكم!', style: const pw.TextStyle(fontSize: 14))),
-                ],
-              ),
+            child: pw.Column(
+              children: [
+                pw.Text('فاتورة مبسطة', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
+                pw.SizedBox(height: 10),
+                pw.Text('رقم الفاتورة: $invoiceNumber'),
+                pw.Divider(),
+                _buildHeader(),
+                pw.Divider(),
+                ...items.map((item) => _buildInvoiceItem(item)).toList(),
+                pw.Divider(),
+                _buildTotals(subtotal, tax, total),
+              ],
             ),
           );
         },
@@ -73,49 +54,66 @@ class PdfGeneratorService {
     return pdf.save();
   }
 
-  pw.Widget _buildHeader() {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Expanded(flex: 3, child: pw.Text('الصنف', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-        pw.Expanded(flex: 1, child: pw.Text('الكمية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
-        pw.Expanded(flex: 1, child: pw.Text('سعر الوحدة', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
-        pw.Expanded(flex: 1, child: pw.Text('الإجمالي', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
-      ],
-    );
-  }
-
-  // This function now takes a simple Map, removing the broken dependency.
-  pw.Widget _buildInvoiceItem(Map<String, dynamic> item) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 4),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Expanded(flex: 3, child: pw.Text(item['name'].toString())),
-          pw.Expanded(flex: 1, child: pw.Text(item['quantity'].toString(), textAlign: pw.TextAlign.center)),
-          pw.Expanded(flex: 1, child: pw.Text((item['price'] as num).toStringAsFixed(2), textAlign: pw.TextAlign.center)),
-          pw.Expanded(flex: 1, child: pw.Text((item['total'] as num).toStringAsFixed(2), textAlign: pw.TextAlign.right)),
+  // This new method handles saving the PDF and returns the file path.
+  Future<String?> savePdfDialog(BuildContext context, Uint8List pdfBytes) async {
+    return await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حفظ الفاتورة'),
+        content: const Text('اختر مكان حفظ ملف الـ PDF قبل الطباعة.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          // Save to Downloads option
+          FilledButton.icon(
+            icon: const Icon(Icons.download),
+            label: const Text('حفظ في التنزيلات'),
+            onPressed: () async {
+              try {
+                final dir = await getDownloadsDirectory();
+                if (dir == null) throw Exception('لا يمكن الوصول لمجلد التنزيلات');
+                final path = '${dir.path}/invoice_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                await File(path).writeAsBytes(pdfBytes);
+                Navigator.pop(ctx, path);
+              } catch (e) {
+                Navigator.pop(ctx, null);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الحفظ: $e')));
+              }
+            },
+          ),
         ],
       ),
     );
   }
 
+  pw.Widget _buildHeader() {
+    return pw.Row(children: [
+      pw.Expanded(flex: 2, child: pw.Text('الصنف', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+      pw.Expanded(flex: 1, child: pw.Text('الكمية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
+      pw.Expanded(flex: 1, child: pw.Text('السعر', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+    ]);
+  }
+
+  pw.Widget _buildInvoiceItem(Map<String, dynamic> item) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(children: [
+        pw.Expanded(flex: 2, child: pw.Text(item['name'].toString())),
+        pw.Expanded(flex: 1, child: pw.Text(item['quantity'].toString(), textAlign: pw.TextAlign.center)),
+        pw.Expanded(flex: 1, child: pw.Text((item['total'] as num).toStringAsFixed(2), textAlign: pw.TextAlign.right)),
+      ]),
+    );
+  }
+
   pw.Widget _buildTotals(double subtotal, double tax, double total) {
-    return pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
-      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        pw.Text('المجموع الفرعي:'),
-        pw.Text('ضريبة القيمة المضافة (15%):'),
-        pw.Divider(),
-        pw.Text('الإجمالي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-      ]),
-      pw.SizedBox(width: 20),
-      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-        pw.Text(subtotal.toStringAsFixed(2)),
-        pw.Text(tax.toStringAsFixed(2)),
-        pw.Divider(),
-        pw.Text(total.toStringAsFixed(2), style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-      ]),
+    return pw.Column(children: [
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('المجموع الفرعي:'), pw.Text(subtotal.toStringAsFixed(2))]),
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('ضريبة القيمة المضافة (15%):'), pw.Text(tax.toStringAsFixed(2))]),
+      pw.Divider(),
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('الإجمالي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15)), pw.Text(total.toStringAsFixed(2), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15))]),
     ]);
   }
 }

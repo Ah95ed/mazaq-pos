@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -12,6 +11,7 @@ import '../../../../services/pdf_generator_service.dart';
 import '../../../providers/menu_provider.dart';
 import '../../../providers/order_provider.dart';
 import '../../../widgets/app_text_field.dart';
+import './print_dialog_widget.dart';
 
 class OrderSummaryPanel extends StatefulWidget {
   const OrderSummaryPanel({super.key});
@@ -25,7 +25,7 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
   final _discountController = TextEditingController();
   final _totalController = TextEditingController();
   String? _selectedPanelCategory;
-  bool _isPrinting = false;
+  bool _isProcessingPrint = false;
 
   final _pdfService = PdfGeneratorService();
 
@@ -37,48 +37,51 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
     super.dispose();
   }
 
-  // FINAL GUARANTEED FIX: This function now converts entities to simple Maps before printing.
-  Future<void> _printInvoice(OrderProvider provider) async {
-    if (provider.draftItems.isEmpty) return;
+  // New print workflow
+  Future<void> _handlePrintWorkflow(OrderProvider provider) async {
+    if (provider.draftItems.isEmpty || _isProcessingPrint) return;
 
-    setState(() => _isPrinting = true);
+    setState(() => _isProcessingPrint = true);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جار إنشاء الفاتورة...')));
+
     try {
-      // 1. Convert the list of OrderItemEntity to a list of simple Maps.
-      // This completely decouples the UI from the PDF service.
-      final List<Map<String, dynamic>> itemsAsMaps = provider.draftItems.map((item) {
-        return {
-          'name': item.itemName,
-          'quantity': item.quantity,
-          'price': item.unitPrice,
-          'total': item.lineTotal,
-        };
+      // 1. Convert cart items to simple maps
+      final itemsAsMaps = provider.draftItems.map((item) => {
+        'name': item.itemName,
+        'quantity': item.quantity,
+        'price': item.unitPrice,
+        'total': item.lineTotal,
       }).toList();
 
-      final double subtotal = provider.draftSubtotal;
-      final double tax = provider.draftTotal - subtotal;
+      final subtotal = provider.draftSubtotal;
+      final tax = provider.draftTotal - subtotal;
 
-      // 2. Generate the PDF with the simple, decoupled data.
-      final pdfBytes = await _pdfService.generateInvoice(
-        items: itemsAsMaps, // Pass the converted list
+      // 2. Generate PDF bytes
+      final pdfBytes = await _pdfService.generateInvoiceBytes(
+        items: itemsAsMaps,
         subtotal: subtotal,
         tax: tax,
         total: provider.draftTotal,
         invoiceNumber: DateTime.now().millisecondsSinceEpoch.toString().substring(7),
       );
 
-      // 3. Open the Windows Print Dialog
-      await Printing.layoutPdf(
-        onLayout: (format) async => pdfBytes,
-      );
+      // 3. Show save dialog and get the saved file path
+      final String? savedFilePath = await _pdfService.savePdfDialog(context, pdfBytes);
+
+      // 4. If the file was saved, show the print dialog
+      if (savedFilePath != null && mounted) {
+        showPrintDialog(context, filePath: savedFilePath);
+      }
+
     } catch (e) {
-      if(mounted){
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate or print PDF: ${e.toString()}')),
+          SnackBar(content: Text('حدث خطأ: ${e.toString()}')),
         );
       }
     } finally {
       if (mounted) {
-        setState(() => _isPrinting = false);
+        setState(() => _isProcessingPrint = false);
       }
     }
   }
@@ -231,7 +234,6 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
   }
 
   String _formatAmount(num value) {
-    // يحذف كل الأصفار الزائدة بعد الفاصلة العشرية
     String text = value.toStringAsFixed(6);
     if (text.contains('.')) {
       text = text.replaceFirst(RegExp(r'\.0+$'), '');
@@ -341,7 +343,6 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                                   item.quantity + 1,
                                 ),
                               ),
-                              // زر حذف من السلة
                               IconButton(
                                 icon: const Icon(
                                   Icons.delete,
@@ -406,14 +407,14 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                     SizedBox(width: AppDimensions.sm),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: (provider.draftItems.isEmpty || _isPrinting)
+                        onPressed: (provider.draftItems.isEmpty || _isProcessingPrint)
                             ? null
-                            : () => _printInvoice(provider), // Pass the provider
-                        child: _isPrinting
+                            : () => _handlePrintWorkflow(provider),
+                        child: _isProcessingPrint
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                // child: CircularProgressIndicator(strokeWidth: 2),
                               )
                             : Text(context.tr(AppKeys.print)),
                       ),
