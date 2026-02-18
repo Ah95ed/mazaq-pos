@@ -8,6 +8,8 @@ class PrinterSettingsModel {
   final String? ip;
   final int? port;
   final String? usbModelKey;
+  final String? printerName;
+  final String? role;
   final DateTime updatedAt;
 
   const PrinterSettingsModel({
@@ -16,6 +18,8 @@ class PrinterSettingsModel {
     this.ip,
     this.port,
     this.usbModelKey,
+    this.printerName,
+    this.role,
     required this.updatedAt,
   });
 
@@ -26,6 +30,8 @@ class PrinterSettingsModel {
       ip: map[AppDbColumns.printerIp] as String?,
       port: map[AppDbColumns.printerPort] as int?,
       usbModelKey: map[AppDbColumns.usbModelKey] as String?,
+      printerName: map[AppDbColumns.printerName] as String?,
+      role: map[AppDbColumns.printerRole] as String?,
       updatedAt: DateTime.parse(map[AppDbColumns.updatedAt] as String),
     );
   }
@@ -36,6 +42,8 @@ class PrinterSettingsModel {
       AppDbColumns.printerIp: ip,
       AppDbColumns.printerPort: port,
       AppDbColumns.usbModelKey: usbModelKey,
+      AppDbColumns.printerName: printerName,
+      AppDbColumns.printerRole: role,
       AppDbColumns.updatedAt: updatedAt.toIso8601String(),
     };
     if (includeId) {
@@ -51,6 +59,8 @@ class PrinterSettingsModel {
       ip: ip,
       port: port,
       usbModelKey: usbModelKey,
+      printerName: printerName,
+      role: role,
       updatedAt: updatedAt,
     );
   }
@@ -62,6 +72,8 @@ class PrinterSettingsModel {
       ip: entity.ip,
       port: entity.port,
       usbModelKey: entity.usbModelKey,
+      printerName: entity.printerName,
+      role: entity.role,
       updatedAt: entity.updatedAt,
     );
   }

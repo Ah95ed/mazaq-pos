@@ -6,6 +6,8 @@ class PrinterSettingsEntity {
   final String? ip;
   final int? port;
   final String? usbModelKey;
+  final String? printerName; // Windows printer name
+  final String? role; // kitchen, grill, cashier
   final DateTime updatedAt;
 
   const PrinterSettingsEntity({
@@ -14,6 +16,8 @@ class PrinterSettingsEntity {
     this.ip,
     this.port,
     this.usbModelKey,
+    this.printerName,
+    this.role,
     required this.updatedAt,
   });
 }

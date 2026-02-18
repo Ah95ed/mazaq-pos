@@ -14,6 +14,7 @@ import 'data/datasources/local/app_database.dart';
 import 'data/datasources/local/export_local_data_source.dart';
 import 'data/datasources/local/menu_local_data_source.dart';
 import 'data/datasources/local/order_local_data_source.dart';
+import 'data/datasources/local/printer_config_local_data_source.dart';
 import 'data/datasources/local/printer_settings_local_data_source.dart';
 import 'data/datasources/local/sales_local_data_source.dart';
 import 'data/repositories/export_repository_impl.dart';
@@ -40,6 +41,7 @@ import 'domain/usecases/sales/get_sales_summary.dart';
 import 'presentation/providers/export_provider.dart';
 import 'presentation/providers/menu_provider.dart';
 import 'presentation/providers/order_provider.dart';
+import 'presentation/providers/printer_config_provider.dart';
 import 'presentation/providers/printer_settings_provider.dart';
 import 'presentation/providers/sales_provider.dart';
 import 'presentation/screens/home/home_screen.dart';
@@ -49,6 +51,7 @@ import 'presentation/screens/settings/printer_settings_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppDatabase.instance.init();
+
   final localeProvider = await LocaleProvider.create();
   runApp(AppRoot(localeProvider: localeProvider));
 }
@@ -68,6 +71,7 @@ class AppRoot extends StatelessWidget {
     final printerSettingsRepository = PrinterSettingsRepositoryImpl(
       PrinterSettingsLocalDataSource(db),
     );
+    final printerConfigDataSource = PrinterConfigLocalDataSource(db);
 
     return MultiProvider(
       providers: [
@@ -106,6 +110,10 @@ class AppRoot extends StatelessWidget {
             getSettings: GetPrinterSettings(printerSettingsRepository),
             saveSettings: SavePrinterSettings(printerSettingsRepository),
           ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) =>
+              PrinterConfigProvider(dataSource: printerConfigDataSource),
         ),
       ],
       child: ScreenUtilInit(

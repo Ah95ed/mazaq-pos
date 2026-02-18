@@ -35,13 +35,19 @@ class PdfGeneratorService {
             textDirection: pw.TextDirection.rtl,
             child: pw.Column(
               children: [
-                pw.Text('فاتورة مبسطة', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
+                pw.Text(
+                  'غصن البان',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 24,
+                  ),
+                ),
                 pw.SizedBox(height: 10),
                 pw.Text('رقم الفاتورة: $invoiceNumber'),
                 pw.Divider(),
                 _buildHeader(),
                 pw.Divider(),
-                ...items.map((item) => _buildInvoiceItem(item)).toList(),
+                ...items.map((item) => _buildInvoiceItem(item)),
                 pw.Divider(),
                 _buildTotals(subtotal, tax, total),
               ],
@@ -55,7 +61,10 @@ class PdfGeneratorService {
   }
 
   // This new method handles saving the PDF and returns the file path.
-  Future<String?> savePdfDialog(BuildContext context, Uint8List pdfBytes) async {
+  Future<String?> savePdfDialog(
+    BuildContext context,
+    Uint8List pdfBytes,
+  ) async {
     return await showDialog<String?>(
       context: context,
       barrierDismissible: false,
@@ -74,13 +83,17 @@ class PdfGeneratorService {
             onPressed: () async {
               try {
                 final dir = await getDownloadsDirectory();
-                if (dir == null) throw Exception('لا يمكن الوصول لمجلد التنزيلات');
-                final path = '${dir.path}/invoice_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                if (dir == null)
+                  throw Exception('لا يمكن الوصول لمجلد التنزيلات');
+                final path =
+                    '${dir.path}/invoice_${DateTime.now().millisecondsSinceEpoch}.pdf';
                 await File(path).writeAsBytes(pdfBytes);
                 Navigator.pop(ctx, path);
               } catch (e) {
                 Navigator.pop(ctx, null);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الحفظ: $e')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('فشل الحفظ: $e')));
               }
             },
           ),
@@ -90,30 +103,92 @@ class PdfGeneratorService {
   }
 
   pw.Widget _buildHeader() {
-    return pw.Row(children: [
-      pw.Expanded(flex: 2, child: pw.Text('الصنف', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-      pw.Expanded(flex: 1, child: pw.Text('الكمية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
-      pw.Expanded(flex: 1, child: pw.Text('السعر', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
-    ]);
+    return pw.Row(
+      children: [
+        pw.Expanded(
+          flex: 2,
+          child: pw.Text(
+            'الصنف',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+        ),
+        pw.Expanded(
+          flex: 1,
+          child: pw.Text(
+            'الكمية',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            textAlign: pw.TextAlign.center,
+          ),
+        ),
+        pw.Expanded(
+          flex: 1,
+          child: pw.Text(
+            'السعر',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            textAlign: pw.TextAlign.right,
+          ),
+        ),
+      ],
+    );
   }
 
   pw.Widget _buildInvoiceItem(Map<String, dynamic> item) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 2),
-      child: pw.Row(children: [
-        pw.Expanded(flex: 2, child: pw.Text(item['name'].toString())),
-        pw.Expanded(flex: 1, child: pw.Text(item['quantity'].toString(), textAlign: pw.TextAlign.center)),
-        pw.Expanded(flex: 1, child: pw.Text((item['total'] as num).toStringAsFixed(2), textAlign: pw.TextAlign.right)),
-      ]),
+      child: pw.Row(
+        children: [
+          pw.Expanded(flex: 2, child: pw.Text(item['name'].toString())),
+          pw.Expanded(
+            flex: 1,
+            child: pw.Text(
+              item['quantity'].toString(),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          pw.Expanded(
+            flex: 1,
+            child: pw.Text(
+              (item['total'] as num).toStringAsFixed(2),
+              textAlign: pw.TextAlign.right,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   pw.Widget _buildTotals(double subtotal, double tax, double total) {
-    return pw.Column(children: [
-      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('المجموع الفرعي:'), pw.Text(subtotal.toStringAsFixed(2))]),
-      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('ضريبة القيمة المضافة (15%):'), pw.Text(tax.toStringAsFixed(2))]),
-      pw.Divider(),
-      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('الإجمالي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15)), pw.Text(total.toStringAsFixed(2), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15))]),
-    ]);
+    return pw.Column(
+      children: [
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text('المجموع الفرعي:'),
+            pw.Text(subtotal.toStringAsFixed(2)),
+          ],
+        ),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text('ضريبة القيمة المضافة (15%):'),
+            pw.Text(tax.toStringAsFixed(2)),
+          ],
+        ),
+        pw.Divider(),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'الإجمالي:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15),
+            ),
+            pw.Text(
+              total.toStringAsFixed(2),
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }

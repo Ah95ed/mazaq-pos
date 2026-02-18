@@ -1,76 +1,104 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:bot_toast/bot_toast.dart';
 import 'package:image/image.dart' as img;
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import 'package:pdf_render/pdf_render.dart';
+import 'package:printing/printing.dart';
+
+import '../core/printing/printer_config_model.dart';
+import '../core/printing/windows_printer_service.dart';
 
 class PrinterService {
-  // The method now accepts a file path instead of raw bytes.
-  Future<void> printPdfAsImage(
+  /// Prints a PDF file to the given [config].
+  /// Priority: IP (TCP Socket) → Windows Printer Name (Spooler API)
+  Future<void> printToConfig(
     String pdfPath,
-    String ip,
-    int port, {
+    PrinterConfig config, {
     required Function(String) onStatus,
   }) async {
     try {
-      // 0. Read the file from the provided path
-      onStatus('⏳ جار قراءة الملف...');
+      if (config.ip == null && config.printerName == null) {
+        throw Exception(
+          'طابعة "${config.role}" غير مُعدَّة. افتح إعدادات الطابعات وأضف IP أو اسم الطابعة.',
+        );
+      }
+
+      onStatus('⏳ جار التحقق من الملف...');
       final file = File(pdfPath);
       if (!await file.exists()) {
-        throw Exception('ملف الفاتورة غير موجود في المسار المحدد.');
+        throw Exception('ملف الفاتورة غير موجود: $pdfPath');
       }
-      final Uint8List pdfBytes = await file.readAsBytes();
 
-      // 1. Render PDF from bytes to Image
       onStatus('⏳ جار تحويل الفاتورة إلى صورة...');
-      final image = await _renderPdfToImage(pdfBytes);
-      if (image == null) {
-        throw Exception('فشل تحويل PDF إلى صورة.');
-      }
+      final image = await _renderPdfToImage(pdfPath);
+      if (image == null) throw Exception('فشل تحويل PDF إلى صورة.');
 
-      // 2. Connect to the printer
-      onStatus('⏳ جار الاتصال بالطابعة ($ip)...');
-      final socket = await Socket.connect(ip, port, timeout: const Duration(seconds: 5));
-
-      // 3. Generate ESC/POS commands
       onStatus('⏳ جار تجهيز بيانات الطباعة...');
-      final commands = await _generatePrintCommands(image);
+      final commands = await _generateEscPos(image);
 
-      // 4. Send to printer
-      onStatus('⏳ جار إرسال البيانات للطابعة...');
-      socket.add(commands);
-      await socket.flush();
-      socket.destroy();
+      if (config.ip != null) {
+        onStatus('⏳ الاتصال بـ ${config.ip}:${config.port}...');
+        await _sendViaTcp(config.ip!, config.port, commands);
+      } else {
+        onStatus('⏳ إرسال إلى "${config.printerName}"...');
+        final ok = WindowsPrinterService.sendRawBytes(
+          config.printerName!,
+          commands,
+        );
+        if (!ok) throw Exception('فشل الإرسال عبر Windows Spooler.');
+      }
 
       onStatus('✅ تمت الطباعة بنجاح!');
     } catch (e) {
-      final errorMsg = '❌ فشلت الطباعة: ${e.toString()}';
-      onStatus(errorMsg);
-      BotToast.showText(text: errorMsg); // Show detailed error in a toast
+      final msg = '❌ ${e.toString()}';
+      onStatus(msg);
+      BotToast.showText(text: msg);
     }
   }
 
-  Future<img.Image?> _renderPdfToImage(Uint8List pdfBytes) async {
-    final doc = await PdfDocument.openData(pdfBytes);
+  Future<void> _sendViaTcp(String ip, int port, Uint8List data) async {
+    Socket? socket;
     try {
-      final page = await doc.getPage(1);
-      final pageImage = await page.render(width: 384, height: (page.height * (384 / page.width)).round());
-      return img.decodeImage(pageImage.pixels);
+      socket = await Socket.connect(
+        ip,
+        port,
+        timeout: const Duration(seconds: 5),
+      );
+      socket.add(data);
+      await socket.flush();
+    } catch (e) {
+      throw Exception('فشل الاتصال بـ $ip:$port — $e');
     } finally {
-      doc.dispose();
+      socket?.destroy();
     }
   }
 
-  Future<Uint8List> _generatePrintCommands(img.Image image) async {
+  Future<img.Image?> _renderPdfToImage(String pdfPath) async {
+    try {
+      final pdfBytes = await File(pdfPath).readAsBytes();
+      await for (final page in Printing.raster(
+        pdfBytes,
+        pages: [0],
+        dpi: 200,
+      )) {
+        final png = await page.toPng();
+        return img.decodeImage(png);
+      }
+    } catch (e) {
+      print('PDF render error: $e');
+    }
+    return null;
+  }
+
+  Future<Uint8List> _generateEscPos(img.Image image) async {
     final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm80, profile);
-    List<int> bytes = [];
-
-    bytes += generator.imageRaster(image, align: PosAlign.center);
-    bytes += generator.feed(2);
-    bytes += generator.cut();
-
+    final gen = Generator(PaperSize.mm80, profile);
+    final bytes = <int>[
+      ...gen.imageRaster(image, align: PosAlign.center),
+      ...gen.feed(2),
+      ...gen.cut(),
+    ];
     return Uint8List.fromList(bytes);
   }
 }

@@ -16,6 +16,12 @@ class PrinterSettingsRepositoryImpl implements PrinterSettingsRepository {
   }
 
   @override
+  Future<PrinterSettingsEntity?> getByRole(String role) async {
+    final model = await localDataSource.getByRole(role);
+    return model?.toEntity();
+  }
+
+  @override
   Future<void> save(PrinterSettingsEntity settings) {
     final model = PrinterSettingsModel.fromEntity(settings);
     return localDataSource.upsert(model);

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/printer_options.dart';
 import '../../core/printing/printer_config.dart';
 import '../../domain/entities/printer_settings_entity.dart';
 import '../../domain/usecases/printer_settings/get_printer_settings.dart';
@@ -15,42 +14,44 @@ class PrinterSettingsProvider extends ChangeNotifier {
     required this.saveSettings,
   });
 
-  PrinterSettingsEntity? _usbSettings;
-  PrinterSettingsEntity? _wifiSettings;
+  PrinterSettingsEntity? _kitchenSettings;
+  PrinterSettingsEntity? _grillSettings;
+  PrinterSettingsEntity? _cashierSettings;
 
-  PrinterSettingsEntity? get usbSettings => _usbSettings;
-  PrinterSettingsEntity? get wifiSettings => _wifiSettings;
-
-  String get defaultUsbModelKey => PrinterOptions.usbModelKeys.first;
+  PrinterSettingsEntity? get kitchenSettings => _kitchenSettings;
+  PrinterSettingsEntity? get grillSettings => _grillSettings;
+  PrinterSettingsEntity? get cashierSettings => _cashierSettings;
 
   Future<void> load() async {
-    _usbSettings = await getSettings(PrinterType.usb);
-    _wifiSettings = await getSettings(PrinterType.tcp);
+    _kitchenSettings = await getSettings.byRole('Kitchen');
+    _grillSettings = await getSettings.byRole('Grill');
+    _cashierSettings = await getSettings.byRole('Cashier');
     notifyListeners();
   }
 
-  Future<void> saveUsb({required String modelKey}) async {
+  Future<void> saveRole({
+    required String role,
+    String? printerName,
+    String? ip,
+    int? port,
+  }) async {
+    final existing = await getSettings.byRole(role);
     final settings = PrinterSettingsEntity(
-      id: _usbSettings?.id ?? 0,
-      type: PrinterType.usb,
-      usbModelKey: modelKey,
-      updatedAt: DateTime.now(),
-    );
-    await saveSettings(settings);
-    _usbSettings = settings;
-    notifyListeners();
-  }
-
-  Future<void> saveWifi({required String ip, required int port}) async {
-    final settings = PrinterSettingsEntity(
-      id: _wifiSettings?.id ?? 0,
+      id: existing?.id ?? 0,
       type: PrinterType.tcp,
+      printerName: printerName,
       ip: ip,
       port: port,
+      role: role,
       updatedAt: DateTime.now(),
     );
     await saveSettings(settings);
-    _wifiSettings = settings;
+
+    // Update local state
+    if (role == 'Kitchen') _kitchenSettings = settings;
+    if (role == 'Grill') _grillSettings = settings;
+    if (role == 'Cashier') _cashierSettings = settings;
+
     notifyListeners();
   }
 }

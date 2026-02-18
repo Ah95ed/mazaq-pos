@@ -5,6 +5,7 @@ class AppDbTables {
   static const String orderItems = 'order_items';
   static const String sales = 'sales';
   static const String printerSettings = 'printer_settings';
+  static const String printerConfigs = 'printer_configs';
 }
 
 class AppDbColumns {
@@ -41,6 +42,8 @@ class AppDbColumns {
   static const String printerType = 'printer_type';
   static const String printerIp = 'printer_ip';
   static const String printerPort = 'printer_port';
+  static const String printerName = 'printer_name';
+  static const String printerRole = 'printer_role';
   static const String usbModelKey = 'usb_model_key';
 }
 

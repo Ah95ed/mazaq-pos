@@ -4,7 +4,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:arabic_reshaper/arabic_reshaper.dart';
-import 'package:project/domain/entities/order_entity.dart' show OrderEntity, OrderType;
+import 'package:project/domain/entities/order_entity.dart'
+    show OrderEntity, OrderType;
 
 // دالة لمعالجة النص العربي
 String reshapeArabic(String text) {
@@ -40,7 +41,7 @@ class PrintJobBuilder {
             children: [
               // Header
               pw.Text(
-                reshapeArabic('مذاق POS'),
+                reshapeArabic('غصن البان'),
                 style: pw.TextStyle(
                   font: arabicFontBold,
                   fontSize: 24,

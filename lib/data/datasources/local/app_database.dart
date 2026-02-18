@@ -19,7 +19,7 @@ class AppDatabase {
     final dbPath = await _getDbPath();
     _database = await openDatabase(
       dbPath,
-      version: 5,
+      version: 8,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -83,6 +83,35 @@ class AppDatabase {
           if (hasCategoriesTable) {
             await db.delete(AppDbTables.itemCategories);
           }
+        }
+        if (oldVersion < 6) {
+          final hasPrinterName = await _columnExists(
+            db,
+            AppDbTables.printerSettings,
+            AppDbColumns.printerName,
+          );
+          if (!hasPrinterName) {
+            await db.execute(
+              'ALTER TABLE ${AppDbTables.printerSettings} '
+              'ADD COLUMN ${AppDbColumns.printerName} TEXT',
+            );
+          }
+        }
+        if (oldVersion < 7) {
+          final hasPrinterRole = await _columnExists(
+            db,
+            AppDbTables.printerSettings,
+            AppDbColumns.printerRole,
+          );
+          if (!hasPrinterRole) {
+            await db.execute(
+              'ALTER TABLE ${AppDbTables.printerSettings} '
+              'ADD COLUMN ${AppDbColumns.printerRole} TEXT',
+            );
+          }
+        }
+        if (oldVersion < 8) {
+          await _createPrinterConfigsTable(db);
         }
       },
     );
@@ -172,9 +201,40 @@ class AppDatabase {
         ${AppDbColumns.printerIp} TEXT,
         ${AppDbColumns.printerPort} INTEGER,
         ${AppDbColumns.usbModelKey} TEXT,
+        ${AppDbColumns.printerName} TEXT,
+        ${AppDbColumns.printerRole} TEXT,
         ${AppDbColumns.updatedAt} TEXT NOT NULL
       )
       ''');
+
+    await _createPrinterConfigsTable(db);
+  }
+
+  Future<void> _createPrinterConfigsTable(Database db) async {
+    final tableExists = await _tableExists(db, AppDbTables.printerConfigs);
+    if (!tableExists) {
+      await db.execute('''
+        CREATE TABLE ${AppDbTables.printerConfigs} (
+          ${AppDbColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${AppDbColumns.printerRole} TEXT NOT NULL UNIQUE,
+          ${AppDbColumns.printerName} TEXT,
+          ${AppDbColumns.printerIp} TEXT,
+          ${AppDbColumns.printerPort} INTEGER NOT NULL DEFAULT 9100,
+          ${AppDbColumns.updatedAt} TEXT NOT NULL
+        )
+      ''');
+      // Seed the 3 default roles
+      final now = DateTime.now().toIso8601String();
+      for (final role in ['Cashier', 'Kitchen', 'Grill']) {
+        await db.insert(AppDbTables.printerConfigs, {
+          AppDbColumns.printerRole: role,
+          AppDbColumns.printerName: null,
+          AppDbColumns.printerIp: null,
+          AppDbColumns.printerPort: 9100,
+          AppDbColumns.updatedAt: now,
+        });
+      }
+    }
   }
 
   Future<bool> _columnExists(

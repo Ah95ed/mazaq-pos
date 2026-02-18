@@ -22,8 +22,25 @@ class PrinterSettingsLocalDataSource {
     return PrinterSettingsModel.fromMap(rows.first);
   }
 
+  Future<PrinterSettingsModel?> getByRole(String role) async {
+    final rows = await database.query(
+      AppDbTables.printerSettings,
+      where: '${AppDbColumns.printerRole} = ?',
+      whereArgs: [role],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return PrinterSettingsModel.fromMap(rows.first);
+  }
+
   Future<void> upsert(PrinterSettingsModel model) async {
-    final existing = await getByType(model.type);
+    // If it has a role, we identify by role. Otherwise by type (fallback)
+    final existing = model.role != null
+        ? await getByRole(model.role!)
+        : await getByType(model.type);
+
     if (existing == null) {
       await database.insert(
         AppDbTables.printerSettings,
@@ -39,5 +56,10 @@ class PrinterSettingsLocalDataSource {
       where: '${AppDbColumns.id} = ?',
       whereArgs: [existing.id],
     );
+  }
+
+  Future<List<PrinterSettingsModel>> getAll() async {
+    final rows = await database.query(AppDbTables.printerSettings);
+    return rows.map((e) => PrinterSettingsModel.fromMap(e)).toList();
   }
 }
