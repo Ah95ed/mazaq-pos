@@ -77,13 +77,23 @@ class PrinterService {
   Future<img.Image?> _renderPdfToImage(String pdfPath) async {
     try {
       final pdfBytes = await File(pdfPath).readAsBytes();
+      // دقة 203 DPI هي الدقة المثالية للطابعات الحرارية لضمان عدم وجود تشويش
       await for (final page in Printing.raster(
         pdfBytes,
         pages: [0],
-        dpi: 200,
+        dpi: 203,
       )) {
         final png = await page.toPng();
-        return img.decodeImage(png);
+        final rawImg = img.decodeImage(png);
+        if (rawImg != null) {
+          // تحجيم الصورة لتتناسب تمامًا مع عرض الطابعة (576 بكسل لورق 80 مم)
+          // هذا يضمن تطابق عرض الـ PDF مع العرض الحقيقي للطابعة
+          return img.copyResize(
+            rawImg,
+            width: 576,
+            interpolation: img.Interpolation.linear,
+          );
+        }
       }
     } catch (e) {
       print('PDF render error: $e');
@@ -95,7 +105,12 @@ class PrinterService {
     final profile = await CapabilityProfile.load();
     final gen = Generator(PaperSize.mm80, profile);
     final bytes = <int>[
-      ...gen.imageRaster(image, align: PosAlign.center),
+      ...gen.reset(), // إعادة تهيئة الطابعة للوضع الافتراضي
+      ...gen.setGlobalCodeTable('CP864'), // تحديد الترميز العربي بشكل صريح
+      ...gen.imageRaster(
+        image,
+        align: PosAlign.center,
+      ), // إرسال بيانات الصورة النقطية
       ...gen.feed(2),
       ...gen.cut(),
     ];

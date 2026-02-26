@@ -6,7 +6,6 @@ import '../../../../core/constants/app_db.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_keys.dart';
 import '../../../../core/localization/loc_extensions.dart';
-import '../../../../domain/entities/order_entity.dart';
 import '../../../../services/pdf_generator_service.dart';
 import '../../../providers/menu_provider.dart';
 import '../../../providers/order_provider.dart';
@@ -42,16 +41,22 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
     if (provider.draftItems.isEmpty || _isProcessingPrint) return;
 
     setState(() => _isProcessingPrint = true);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جار إنشاء الفاتورة...')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('جار إنشاء الفاتورة...')));
 
     try {
       // 1. Convert cart items to simple maps
-      final itemsAsMaps = provider.draftItems.map((item) => {
-        'name': item.itemName,
-        'quantity': item.quantity,
-        'price': item.unitPrice,
-        'total': item.lineTotal,
-      }).toList();
+      final itemsAsMaps = provider.draftItems
+          .map(
+            (item) => {
+              'name': item.itemName,
+              'quantity': item.quantity,
+              'price': item.unitPrice,
+              'total': item.lineTotal,
+            },
+          )
+          .toList();
 
       final subtotal = provider.draftSubtotal;
       final tax = provider.draftTotal - subtotal;
@@ -62,22 +67,26 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
         subtotal: subtotal,
         tax: tax,
         total: provider.draftTotal,
-        invoiceNumber: DateTime.now().millisecondsSinceEpoch.toString().substring(7),
+        invoiceNumber: DateTime.now().millisecondsSinceEpoch
+            .toString()
+            .substring(7),
       );
 
       // 3. Show save dialog and get the saved file path
-      final String? savedFilePath = await _pdfService.savePdfDialog(context, pdfBytes);
+      final String? savedFilePath = await _pdfService.savePdfDialog(
+        context,
+        pdfBytes,
+      );
 
       // 4. If the file was saved, show the print dialog
       if (savedFilePath != null && mounted) {
         showPrintDialog(context, filePath: savedFilePath);
       }
-
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('حدث خطأ: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -407,7 +416,8 @@ class _OrderSummaryPanelState extends State<OrderSummaryPanel> {
                     SizedBox(width: AppDimensions.sm),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: (provider.draftItems.isEmpty || _isProcessingPrint)
+                        onPressed:
+                            (provider.draftItems.isEmpty || _isProcessingPrint)
                             ? null
                             : () => _handlePrintWorkflow(provider),
                         child: _isProcessingPrint
